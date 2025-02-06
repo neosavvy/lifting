@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import WorkoutPlan from './WorkoutPlan'
 import CycleSummary from './CycleSummary'
 import EliteTimeline from './EliteTimeline'
+import { useAuth } from '../contexts/AuthContext'
+import { FitnessMetric, getLatestFitnessMetric, saveFitnessMetric, metricsAreEqual } from '../lib/fitnessMetrics'
 
 type FormData = {
   bodyWeight: string
@@ -13,6 +15,7 @@ type FormData = {
     deadlift: string
   }
   trackEliteGoals: boolean
+  cycleNumber: number
 }
 
 type MaxesKey = keyof FormData['maxes']
@@ -20,6 +23,7 @@ type MaxesKey = keyof FormData['maxes']
 const STORAGE_KEY = '531_workout_data'
 
 export default function WorkoutForm() {
+  const { user } = useAuth()
   const [formData, setFormData] = useState<FormData>(() => {
     // Load initial data from localStorage on component mount
     const savedData = localStorage.getItem(STORAGE_KEY)
@@ -32,12 +36,50 @@ export default function WorkoutForm() {
         overhead: '',
         deadlift: ''
       },
-      trackEliteGoals: false
+      trackEliteGoals: false,
+      cycleNumber: 1
     }
   })
 
+  const [latestMetric, setLatestMetric] = useState<FitnessMetric | null>(null)
   const [showPlan, setShowPlan] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Load latest metric from database
+  useEffect(() => {
+    if (user) {
+      setIsLoading(true)
+      setError(null)
+      getLatestFitnessMetric()
+        .then(metric => {
+          if (metric) {
+            setLatestMetric(metric)
+            // Update form data with latest metric
+            setFormData({
+              bodyWeight: metric.body_weight.toString(),
+              yearsLifting: metric.years_lifting.toString(),
+              maxes: {
+                squat: metric.squat_weight.toString(),
+                bench: metric.bench_weight.toString(),
+                overhead: metric.overhead_press_weight.toString(),
+                deadlift: metric.deadlift_weight.toString()
+              },
+              trackEliteGoals: metric.is_elite_fitness,
+              cycleNumber: metric.cycle_number
+            })
+          }
+        })
+        .catch(err => {
+          console.error('Error loading metrics:', err)
+          setError('Failed to load your previous metrics')
+        })
+        .finally(() => {
+          setIsLoading(false)
+        })
+    }
+  }, [user])
 
   // Save to localStorage whenever formData changes
   useEffect(() => {
@@ -64,9 +106,51 @@ export default function WorkoutForm() {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setShowPlan(true)
+    
+    if (!user) {
+      setError('You must be logged in to save metrics')
+      return
+    }
+
+    setIsLoading(true)
+    setError(null)
+
+    // Ensure all numeric values are properly converted
+    const newMetric = {
+      body_weight: parseFloat(formData.bodyWeight) || 0,
+      years_lifting: parseInt(formData.yearsLifting) || 0,
+      squat_weight: parseFloat(formData.maxes.squat) || 0,
+      deadlift_weight: parseFloat(formData.maxes.deadlift) || 0,
+      bench_weight: parseFloat(formData.maxes.bench) || 0,
+      overhead_press_weight: parseFloat(formData.maxes.overhead) || 0,
+      is_elite_fitness: Boolean(formData.trackEliteGoals),
+      cycle_number: formData.cycleNumber || 1 // Ensure cycle_number has a default value
+    }
+
+    try {
+      // Only save if there's no previous metric or if the values have changed
+      if (!metricsAreEqual(latestMetric, newMetric)) {
+        const savedMetric = await saveFitnessMetric(newMetric)
+        if (savedMetric) {
+          setLatestMetric(savedMetric)
+          // Increment cycle number for next time
+          setFormData(prev => ({
+            ...prev,
+            cycleNumber: (prev.cycleNumber || 1) + 1
+          }))
+        } else {
+          throw new Error('Failed to save metrics')
+        }
+      }
+      setShowPlan(true)
+    } catch (err) {
+      console.error('Error saving metrics:', err)
+      setError('Failed to save your metrics')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -79,6 +163,11 @@ export default function WorkoutForm() {
               <div className="text-center">
                 <h2 className="text-3xl font-retro text-matrix-green mb-2">Enter Your Stats</h2>
                 <p className="text-sm font-cyber text-matrix-green/70">All weights in pounds (lbs)</p>
+                {error && (
+                  <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-300 text-sm">
+                    {error}
+                  </div>
+                )}
               </div>
               
               {/* Basic Info Section */}
@@ -169,13 +258,15 @@ export default function WorkoutForm() {
               {/* Submit Button */}
               <button
                 type="submit"
+                disabled={isLoading}
                 className="w-full bg-matrix-green/20 border-2 border-matrix-green text-matrix-green 
                          font-cyber py-3 px-4 rounded-lg hover:bg-matrix-green/30 
                          active:bg-matrix-green/40 transition-all duration-200 
                          focus:outline-none focus:ring-2 focus:ring-matrix-green/50 
-                         shadow-[0_0_15px_rgba(0,255,0,0.1)] hover:shadow-[0_0_20px_rgba(0,255,0,0.2)]"
+                         shadow-[0_0_15px_rgba(0,255,0,0.1)] hover:shadow-[0_0_20px_rgba(0,255,0,0.2)]
+                         disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Generate Workout Plan
+                {isLoading ? 'Saving...' : 'Generate Workout Plan'}
               </button>
             </div>
           </form>
