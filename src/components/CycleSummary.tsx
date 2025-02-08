@@ -41,11 +41,22 @@ export default function CycleSummary({
   const loadCompletedWeeks = async () => {
     if (!user) return
 
-    // First, get the latest cycle number for this user
+    // First let's get the cycle from fitness_metrics
+    const { data: cycleNumberData, error: cycleNumberError } = await supabase
+      .from('fitness_metrics')
+      .select('cycle_number')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const currentCycle = cycleNumberData?.[0]?.cycle_number || 1
+    console.log('Current cycle from DB:', currentCycle)
+
+    // Next, let's get the cycle data from lift_completions where cycle_number = currentCycle
     const { data: cycleData, error: cycleError } = await supabase
       .from('lift_completions')
       .select('cycle_number')
       .eq('user_id', user.id)
+      .eq('cycle_number', currentCycle)
       .order('cycle_number', { ascending: false })
       .limit(1)
 
@@ -54,8 +65,7 @@ export default function CycleSummary({
       return
     }
 
-    const currentCycle = cycleData?.[0]?.cycle_number || 1
-    console.log('Current cycle from DB:', currentCycle)
+    
 
     // Get all lift completions for the current cycle
     const { data, error } = await supabase

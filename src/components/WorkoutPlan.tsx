@@ -26,11 +26,14 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [expandedSet, setExpandedSet] = useState<string | null>(null)
   const [workoutStatus, setWorkoutStatus] = useState<WorkoutStatus>({})
+  const [currentCycle, setCurrentCycle] = useState(1)
   const { user } = useAuth()
   const cycle = generateCycle(maxLifts)
 
   // Load initial lift completions
   useEffect(() => {
+    // Reset workout status when cycle changes
+    setWorkoutStatus({})
     const loadLiftCompletions = async () => {
       if (!user) return
 
@@ -62,7 +65,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
     }
 
     loadLiftCompletions()
-  }, [user, selectedWeek])
+  }, [user, selectedWeek, currentCycle])
 
   const deleteLiftCompletion = async (lift: LiftName) => {
     if (!user) return
@@ -92,15 +95,39 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
     return true
   }
 
-  const getCurrentCycle = () => {
-    // Get cycle number from localStorage
-    const savedData = localStorage.getItem('531_workout_data')
-    if (savedData) {
-      const data = JSON.parse(savedData)
-      return data.cycleNumber || 1
+  // Get current cycle number from database
+  useEffect(() => {
+    const fetchCurrentCycle = async () => {
+      if (!user) return
+
+      console.log('Fetching current cycle from fitness_metrics...')
+      const { data, error } = await supabase
+        .from('fitness_metrics')
+        .select('cycle_number, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (error) {
+        console.error('Error getting current cycle:', error)
+        return
+      }
+
+      console.log('Latest fitness metrics entries:', data)
+
+      if (data && data.length > 0) {
+        console.log('Setting current cycle to:', data[0].cycle_number)
+        console.log('From entry created at:', new Date(data[0].created_at).toLocaleString())
+        setCurrentCycle(data[0].cycle_number)
+      } else {
+        console.log('No fitness metrics entries found')
+      }
     }
-    return 1
-  }
+
+    fetchCurrentCycle()
+  }, [user])
+
+  const getCurrentCycle = () => currentCycle
 
   const saveLiftCompletion = async (lift: LiftName, status: 'nailed' | 'failed') => {
     if (!user) return false

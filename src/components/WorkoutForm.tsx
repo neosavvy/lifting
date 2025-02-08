@@ -4,6 +4,7 @@ import CycleSummary from './CycleSummary'
 import EliteTimeline from './EliteTimeline'
 import CycleReview from './CycleReview'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import { FitnessMetric, getLatestFitnessMetric, saveFitnessMetric, metricsAreEqual } from '../lib/fitnessMetrics'
 
 type FormData = {
@@ -176,29 +177,44 @@ export default function WorkoutForm() {
   }
 
   const handleCommitNewGoals = async (newMaxes: typeof formData.maxes) => {
-    // Save new maxes and reset cycle
+    if (!user) return
+
+    // Get the current cycle number from fitness_metrics
+    const { data: metricsData, error: metricsError } = await supabase
+      .from('fitness_metrics')
+      .select('cycle_number')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    if (metricsError) {
+      console.error('Error getting current cycle:', metricsError)
+      return
+    }
+
+    const nextCycle = (metricsData?.[0]?.cycle_number || 0) + 1
+
+    // Save new maxes and update cycle
     const newFormData = {
       ...formData,
       maxes: newMaxes,
-      cycleNumber: 1
+      cycleNumber: nextCycle
     }
     setFormData(newFormData)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newFormData))
 
     // Save to database
-    if (user) {
-      const newMetric = {
-        body_weight: parseFloat(formData.bodyWeight) || 0,
-        years_lifting: parseInt(formData.yearsLifting) || 0,
-        squat_weight: parseFloat(newMaxes.squat) || 0,
-        deadlift_weight: parseFloat(newMaxes.deadlift) || 0,
-        bench_weight: parseFloat(newMaxes.bench) || 0,
-        overhead_press_weight: parseFloat(newMaxes.overhead) || 0,
-        is_elite_fitness: Boolean(formData.trackEliteGoals),
-        cycle_number: 1
-      }
-      await saveFitnessMetric(newMetric)
+    const newMetric = {
+      body_weight: parseFloat(formData.bodyWeight) || 0,
+      years_lifting: parseInt(formData.yearsLifting) || 0,
+      squat_weight: parseFloat(newMaxes.squat) || 0,
+      deadlift_weight: parseFloat(newMaxes.deadlift) || 0,
+      bench_weight: parseFloat(newMaxes.bench) || 0,
+      overhead_press_weight: parseFloat(newMaxes.overhead) || 0,
+      is_elite_fitness: Boolean(formData.trackEliteGoals),
+      cycle_number: nextCycle
     }
+    await saveFitnessMetric(newMetric)
 
     setShowReview(false)
     setShowPlan(true)

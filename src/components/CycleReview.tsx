@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { calculateEliteProgress } from '../utils/eliteCalculations'
 import { FiArrowLeft } from 'react-icons/fi'
+import PersonalMetrics from './PersonalMetrics'
 
 type CycleReviewProps = {
   currentMaxes: {
@@ -24,19 +25,72 @@ export default function CycleReview({
   onBack,
   onCommit
 }: CycleReviewProps) {
-  const [newMaxes, setNewMaxes] = useState(currentMaxes)
+  // Calculate recommended increases based on lift type
+  const getRecommendedIncrease = (lift: string) => {
+    switch (lift) {
+      case 'squat': return 5
+      case 'bench': return 2.5
+      case 'overhead': return 1.5
+      case 'deadlift': return 5
+      default: return 2.5
+    }
+  }
+
+  // Initialize new maxes with recommended increases
+  const [currentBodyWeight, setCurrentBodyWeight] = useState(bodyWeight)
+  const [yearsLifting, setYearsLifting] = useState('0')
+  const [currentEliteFitness, setCurrentEliteFitness] = useState(isEliteFitness)
+  const [newMaxes, setNewMaxes] = useState(() => {
+    return Object.entries(currentMaxes).reduce((acc, [lift, weight]) => ({
+      ...acc,
+      [lift]: (parseFloat(weight) + getRecommendedIncrease(lift)).toFixed(1)
+    }), {} as typeof currentMaxes)
+  })
+
+  const { user } = useAuth()
+
+  // Fetch current years_lifting on mount
+  useEffect(() => {
+    const fetchYearsLifting = async () => {
+      if (!user) return
+      const { data, error } = await supabase
+        .from('fitness_metrics')
+        .select('years_lifting')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      if (!error && data?.[0]?.years_lifting) {
+        setYearsLifting(data[0].years_lifting.toString())
+      }
+    }
+    fetchYearsLifting()
+  }, [user])
   const eliteProgress = calculateEliteProgress(parseInt(bodyWeight), currentMaxes)
 
   const handleInputChange = (lift: keyof typeof newMaxes) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewMaxes(prev => ({
-      ...prev,
-      [lift]: e.target.value
-    }))
+    const value = e.target.value
+    // Allow only numbers and one decimal point
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      setNewMaxes(prev => ({
+        ...prev,
+        [lift]: value
+      }))
+    }
   }
+
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onCommit(newMaxes)
+    
+    // Round all values to nearest 0.5 before committing
+    const roundedMaxes = Object.entries(newMaxes).reduce((acc, [lift, weight]) => ({
+      ...acc,
+      [lift]: (Math.round(parseFloat(weight) * 2) / 2).toFixed(1)
+    }), {} as typeof newMaxes)
+
+    onCommit(roundedMaxes)
   }
 
   return (
@@ -81,24 +135,42 @@ export default function CycleReview({
                     {lift.replace('overhead', 'Overhead Press')}
                   </label>
                   <div className="flex items-center space-x-4">
-                    <input
-                      type="number"
-                      value={weight}
-                      onChange={handleInputChange(lift as keyof typeof newMaxes)}
-                      className="flex-1 bg-black border-2 border-matrix-green/30 rounded-lg px-4 py-2 font-cyber text-matrix-green focus:border-matrix-green focus:outline-none"
-                      min="0"
-                      step="5"
-                    />
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        pattern="[0-9]*[.]?[0-9]*"
+                        value={weight}
+                        onChange={handleInputChange(lift as keyof typeof newMaxes)}
+                        className="w-full bg-black border-2 border-matrix-green/30 rounded-lg px-4 py-2 font-cyber text-matrix-green focus:border-matrix-green focus:outline-none"
+                      />
+                      <div className="absolute -top-5 right-0 text-sm font-cyber text-matrix-green/70">
+                        +{getRecommendedIncrease(lift)} lbs/cycle
+                      </div>
+                    </div>
                     <span className="font-cyber text-matrix-green">lbs</span>
                   </div>
                   {isEliteFitness && (
                     <div className="text-sm font-cyber text-matrix-green/70">
-                      Elite Goal: {eliteProgress[lift as keyof typeof eliteProgress].target} lbs
+                      Elite Goal: {eliteProgress.lifts.find(l => l.lift === lift)?.goal} lbs
                     </div>
                   )}
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Personal Metrics */}
+          <div className="retro-container">
+            <h3 className="text-xl font-retro text-matrix-green mb-4">Personal Metrics</h3>
+            <PersonalMetrics 
+              currentWeight={currentBodyWeight}
+              onWeighIn={setCurrentBodyWeight}
+              yearsLifting={yearsLifting}
+              onYearsLiftingChange={setYearsLifting}
+              isEliteFitness={currentEliteFitness}
+              onEliteFitnessChange={setCurrentEliteFitness}
+            />
           </div>
 
           {/* Submit Button */}
