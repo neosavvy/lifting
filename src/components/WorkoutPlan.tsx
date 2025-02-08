@@ -274,6 +274,27 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
         const shareText = generateShareText(lift, status, maxWeight)
         await shareToClipboard(shareText)
         
+        // Check if all lifts in the week are completed
+        const allLiftsCompleted = lifts.every(l => 
+          workoutStatus[selectedWeek]?.[l] === 'nailed' || 
+          workoutStatus[selectedWeek]?.[l] === 'failed'
+        )
+        
+        if (allLiftsCompleted) {
+          if (selectedWeek === 4) {
+            // For week 4, add a delay before scrolling to bottom
+            setTimeout(() => {
+              window.scrollTo({ 
+                top: document.documentElement.scrollHeight,
+                behavior: 'smooth' 
+              })
+            }, 500) // 500ms delay to allow new content to render
+          } else {
+            // For other weeks, scroll to top immediately
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
+        }
+        
         if (onStatusChange) {
           onStatusChange()
         }
