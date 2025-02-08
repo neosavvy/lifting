@@ -1,5 +1,5 @@
 import { generateCycle } from '../utils/workoutCalculations'
-import { calculatePlates, formatPlateText } from '../utils/plateCalculations'
+import { calculatePlates, formatPlateText, EMPTY_SLOT } from '../utils/plateCalculations'
 import { useState, useEffect } from 'react'
 import { LiftStatus, WorkoutStatus } from '../types/workout'
 import { supabase } from '../lib/supabase'
@@ -116,14 +116,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
     setExpandedSet(expandedSet === setKey ? null : setKey)
   }
 
-  const getPlateEmoji = (weight: number) => {
-    switch (weight) {
-      case 45: return '🟦' // 🟦
-      case 35: return '🟨' // 🟨
-      case 25: return '🟩' // 🟩
-      default: return ''
-    }
-  }
+
 
   const generateShareText = () => {
     const weekName = selectedWeek === 3 ? '1+ Week' : `${5 - selectedWeek}s Week`
@@ -132,24 +125,33 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
       return status === 'nailed' ? '💪' : status === 'failed' ? '😤' : '❌'
     }).join('')
 
-    // Get the heaviest set for each lift
-    const liftDetails = lifts.map(lift => {
+    // First pass: generate all plate texts and find max length
+    const liftInfo = lifts.map(lift => {
       const workout = cycle[`week${selectedWeek}`][lift]
       const maxWeight = Math.max(...workout.weights)
       const plates = calculatePlates(maxWeight)
-      
-      // Create a visual representation of plates using emojis
-      // Convert the array of plate weights into emojis
-      const plateEmojis = plates.standardPlates
-        .map(weight => getPlateEmoji(weight))
-        .join('')
+      // Count actual plates (not emojis which are 2 chars each)
+      const plateCount = plates.standardPlates.length + plates.smallPlates.length + plates.microPlates.length
+      const plateText = formatPlateText(plates)
+      return { lift, maxWeight, plateText, plateCount }
+    })
 
-      // Pad the lift name and ensure consistent spacing
-      return `${liftNames[lift]}: ${plateEmojis}`
+    // Find the maximum number of plates
+    const maxPlates = Math.max(5, ...liftInfo.map(info => info.plateCount))
+
+    // Second pass: format each lift with consistent width
+    const liftDetails = liftInfo.map(({ lift, maxWeight, plateText }) => {
+      // Each emoji is 2 chars, so we need to account for that in padding calculation
+      const currentPlateCount = plateText.length / 2
+      const paddingNeeded = maxPlates - currentPlateCount
+      const paddedPlateText = plateText + EMPTY_SLOT.repeat(paddingNeeded)
+      return `${paddedPlateText} ${liftNames[lift]}: ${maxWeight} lbs`
     }).join('\n')
     
-    const legend = '🟩 = 25lbs    🟨 = 35lbs    🟦 = 45lbs'
-    
+    const legend = [
+      'Plates: 🟦=45 🟨=35 🟩=25 | 🟡=10 🔵=5 ⚪️=2.5 🟣=1.25 ⭕️=0.5'
+    ].join('\n')
+
     return `Lift! Week ${selectedWeek} (${weekName}) Results:\n${results}\n\n${liftDetails}\n\n${legend}\n\nCome at me! 🏋️\n#LiftLife #NoExcuses\n\nhttps://lift.neosavvy.com`
   }
 

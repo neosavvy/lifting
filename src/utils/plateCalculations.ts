@@ -49,41 +49,30 @@ export const calculatePlates = (targetWeight: number): PlateBreakdown => {
   return { standardPlates, smallPlates, microPlates }
 }
 
-export const formatPlateText = (plateBreakdown: PlateBreakdown): string => {
+const PLATE_EMOJIS: Record<number, string> = {
+  // Standard plates (squares)
+  45: '🟦',  // 🟦
+  35: '🟨',  // 🟨
+  25: '🟩',  // 🟩
+  // Small plates (circles)
+  10: '🟡',  // 🟡
+  5: '🔵',   // 🔵
+  2.5: '⚪️', // ⚪️
+  1.25: '🟣', // 🟣
+  0.5: '⭕️'  // ⭕️
+}
+
+export const EMPTY_SLOT = '⬜️'  // White square emoji
+
+export const formatPlateText = (plateBreakdown: PlateBreakdown, _minWidth: number = 0): string => {
   const { standardPlates, smallPlates, microPlates } = plateBreakdown
-  const parts: string[] = []
   
-  // Helper function to format plate counts
-  const formatPlateCounts = (plates: number[]) => {
-    const plateCounts = plates.reduce((acc, plate) => {
-      acc[plate] = (acc[plate] || 0) + 1
-      return acc
-    }, {} as Record<number, number>)
-    
-    return Object.entries(plateCounts)
-      .sort((a, b) => Number(b[0]) - Number(a[0])) // Sort by weight descending
-      .map(([plate, count]) => `${count}×${Number(plate)}`)
-      .join(' + ')
-  }
+  // Combine all plates and sort by weight
+  const allPlates = [...standardPlates, ...smallPlates, ...microPlates]
+    .sort((a, b) => b - a)
   
-  // Format standard plates
-  if (standardPlates.length > 0) {
-    parts.push(formatPlateCounts(standardPlates))
-  }
-  
-  // Format small plates
-  if (smallPlates.length > 0) {
-    parts.push(formatPlateCounts(smallPlates))
-  }
-  
-  // Format micro plates
-  if (microPlates.length > 0) {
-    parts.push(formatPlateCounts(microPlates))
-  }
-  
-  if (parts.length === 0) {
-    return "Bar only"
-  }
-  
-  return parts.join(' + ') + ' per side'
+  // Convert all plates to emojis
+  return allPlates
+    .map(plate => PLATE_EMOJIS[plate] || '')
+    .join('')
 } 
