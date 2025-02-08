@@ -165,6 +165,89 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
     return true
   }
 
+  const formatPlatesWithPlaceholders = (plates: ReturnType<typeof calculatePlates>, minPlaceholders: number = 5) => {
+    const plateEmojis = formatPlateEmojis(plates)
+    const plateCount = plateEmojis.length / 2 // Each emoji is 2 chars
+    const placeholdersNeeded = Math.max(0, minPlaceholders - plateCount)
+    return plateEmojis + EMPTY_SLOT.repeat(placeholdersNeeded)
+  }
+
+  const generateShareText = (currentLift: string, status: 'nailed' | 'failed', weight: number) => {
+    const weekName = cycle[`week${selectedWeek}`][lifts[0]].name
+    const emoji = status === 'nailed' ? '💪' : '😤'
+    
+    // Generate status emojis for the week
+    const statusEmojis = lifts.map(lift => {
+      if (lift === currentLift) return emoji
+      const liftStatus = workoutStatus[selectedWeek]?.[lift]
+      return liftStatus === 'nailed' ? '💪' : 
+             liftStatus === 'failed' ? '😤' : '⬜'
+    }).join('')
+
+    // Find maximum number of plates across all lifts
+    const maxPlates = Math.max(6, ...lifts.map(lift => {
+      const liftWeight = Math.max(...cycle[`week${selectedWeek}`][lift].weights)
+      const plates = calculatePlates(liftWeight)
+      const plateText = formatPlateEmojis(plates)
+      return plateText.length / 2 // Each emoji is 2 chars
+    }))
+
+    // Generate plate breakdowns for each lift
+    const liftDetails = lifts.map(lift => {
+      const liftStatus = workoutStatus[selectedWeek]?.[lift]
+      const liftWeight = Math.max(...cycle[`week${selectedWeek}`][lift].weights)
+      
+      if (liftStatus === 'nailed' || liftStatus === 'failed') {
+        // Show plates and weight for completed lifts
+        const plates = calculatePlates(liftWeight)
+        const plateText = formatPlatesWithPlaceholders(plates, maxPlates)
+        return `${plateText} ${liftNames[lift]}: ${liftWeight} lbs`
+      } else {
+        // Show only placeholders for incomplete lifts
+        const placeholders = EMPTY_SLOT.repeat(maxPlates)
+        return `${placeholders} ${liftNames[lift]}: ${liftWeight} lbs`
+      }
+    }).join('\n')
+
+    return `${emoji} Just ${status} my ${liftNames[currentLift as LiftName]} at ${weight}lbs!\n\nWeek ${selectedWeek} (${weekName}) Results:\n${statusEmojis}\n\n${liftDetails}\n\nCome at me! 🏋️\n\nhttps://lift.neosavvy.com`
+  }
+
+  const shareToClipboard = async (text: string) => {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        // Try using the Clipboard API
+        const permissionResult = await navigator.permissions.query({
+          name: 'clipboard-write' as PermissionName
+        })
+
+        if (permissionResult.state === 'granted' || permissionResult.state === 'prompt') {
+          await navigator.clipboard.writeText(text)
+          setToastMessage('Achievement copied! Share it with your friends! 🏋️')
+          setToastType('success')
+          setShowToast(true)
+          return
+        }
+      }
+
+      // Fallback: Create a temporary textarea element
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      
+      setToastMessage('Achievement copied! Share it with your friends! 🏋️')
+      setToastType('success')
+      setShowToast(true)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+      setToastMessage('Failed to copy achievement. Try copying manually.')
+      setToastType('error')
+      setShowToast(true)
+    }
+  }
+
   const toggleLiftStatus = async (lift: LiftName, status: 'nailed' | 'failed') => {
     const currentStatus = workoutStatus[selectedWeek]?.[lift]
     
@@ -175,7 +258,6 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
         setToastMessage(`Cleared ${lift} status`)
         setToastType('success')
         setShowToast(true)
-        // Trigger callback after successful deletion
         if (onStatusChange) {
           onStatusChange()
         }
@@ -184,10 +266,14 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
       // Otherwise save the new status
       const success = await saveLiftCompletion(lift, status)
       if (success) {
-        setToastMessage(`${status === 'nailed' ? '💪' : '😤'} ${lift} marked as ${status}!`)
-        setToastType('success')
-        setShowToast(true)
-        // Trigger callback after successful save
+        // Get the max weight for this lift in the current week
+        const workout = cycle[`week${selectedWeek}`][lift]
+        const maxWeight = Math.max(...workout.weights)
+        
+        // Generate and share the achievement
+        const shareText = generateShareText(lift, status, maxWeight)
+        await shareToClipboard(shareText)
+        
         if (onStatusChange) {
           onStatusChange()
         }
@@ -213,104 +299,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
 
 
 
-  const generateShareText = () => {
-    const weekName = cycle[`week${selectedWeek}`][lifts[0]].name
-    const results = lifts.map(lift => {
-      const status = workoutStatus[selectedWeek]?.[lift]
-      return status === 'nailed' ? '💪' : status === 'failed' ? '😤' : '❌'
-    }).join('')
 
-    // First pass: generate all plate texts and find max length
-    const liftInfo = lifts.map(lift => {
-      const workout = cycle[`week${selectedWeek}`][lift]
-      const maxWeight = Math.max(...workout.weights)
-      const plates = calculatePlates(maxWeight)
-      // Count actual plates (not emojis which are 2 chars each)
-      const plateCount = plates.standardPlates.length + plates.smallPlates.length + plates.microPlates.length
-      const plateText = formatPlateEmojis(plates)
-      return { lift, maxWeight, plateText, plateCount }
-    })
-
-    // Find the maximum number of plates
-    const maxPlates = Math.max(5, ...liftInfo.map(info => info.plateCount))
-
-    // Second pass: format each lift with consistent width
-    const liftDetails = liftInfo.map(({ lift, maxWeight, plateText }) => {
-      // Each emoji is 2 chars, so we need to account for that in padding calculation
-      const currentPlateCount = plateText.length / 2
-      const paddingNeeded = maxPlates - currentPlateCount
-      const paddedPlateText = plateText + EMPTY_SLOT.repeat(paddingNeeded)
-      return `${paddedPlateText} ${liftNames[lift]}: ${maxWeight} lbs`
-    }).join('\n')
-    
-    const legend = [
-      'Plates: 🟦=45 🟨=35 🟩=25 | 🟡=10 🔵=5 ⚪️=2.5 🟣=1.25 ⭕️=0.5'
-    ].join('\n')
-
-    return `Lift! Week ${selectedWeek} (${weekName}) Results:\n${results}\n\n${liftDetails}\n\nCome at me! 🏋️\n#LiftLife #NoExcuses\n\nhttps://lift.neosavvy.com`
-  }
-
-  const [showShareModal, setShowShareModal] = useState(false)
-  const [shareText, setShareText] = useState('')
-
-  const copyToClipboard = async () => {
-    try {
-      // Save all current lift statuses before sharing
-      if (user) {
-        const promises = lifts.map(lift => {
-          const status = workoutStatus[selectedWeek]?.[lift]
-          if (status) {
-            return saveLiftCompletion(lift, status)
-          }
-          return Promise.resolve()
-        })
-        await Promise.all(promises)
-      }
-
-      const text = generateShareText()
-      
-      // Try using the Clipboard API first
-      if (navigator.clipboard && window.isSecureContext) {
-        try {
-          // Check clipboard permission
-          const permissionResult = await navigator.permissions.query({
-            name: 'clipboard-write' as PermissionName
-          })
-
-          if (permissionResult.state === 'granted' || permissionResult.state === 'prompt') {
-            await navigator.clipboard.writeText(text)
-            setToastMessage('Copied to clipboard! Now go flex on your friends! 💪')
-            setToastType('success')
-            setShowToast(true)
-            return
-          } else {
-            throw new Error('Clipboard permission denied')
-          }
-        } catch (clipboardError) {
-          console.error('Clipboard API error:', clipboardError)
-          const errorMessage = clipboardError instanceof Error && clipboardError.message === 'Clipboard permission denied'
-            ? 'Please allow clipboard access or use manual copy'
-            : 'Clipboard access not available'
-          setToastMessage(errorMessage)
-          setToastType('error')
-          setShowToast(true)
-          // Fall through to manual copy
-        }
-      }
-
-      // Show manual copy interface for mobile or when Clipboard API fails
-      setShareText(text)
-      setShowShareModal(true)
-      setToastMessage('Select and copy the text below to share')
-      setToastType('success')
-      setShowToast(true)
-    } catch (error) {
-      console.error('Share error:', error)
-      setToastMessage('Failed to generate share text')
-      setToastType('error')
-      setShowToast(true)
-    }
-  }
 
   return (
     <>
@@ -322,44 +311,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
         />
       )}
       
-      {/* Share Modal for Mobile */}
-      {showShareModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
-          <div className="bg-black border border-[#00ff00] rounded-lg p-4 w-[90%] h-[80vh] flex flex-col">
-            <h3 className="text-[#00ff00] text-xl mb-4 font-cyber">Copy this text to share:</h3>
-            <textarea
-              className="flex-1 w-full bg-black text-[#00ff00] border border-[#00ff00] rounded p-4 mb-4 font-mono text-lg"
-              value={shareText}
-              readOnly
-              ref={(textarea) => {
-                if (textarea) {
-                  textarea.select()
-                  // Try to show the native copy UI
-                  if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(textarea.value)
-                  }
-                }
-              }}
-              onClick={(e) => {
-                const textarea = e.target as HTMLTextAreaElement
-                textarea.select()
-                // Try to show the native copy UI
-                if (navigator.clipboard && window.isSecureContext) {
-                  navigator.clipboard.writeText(textarea.value)
-                }
-              }}
-            />
-            <div className="flex justify-end space-x-4">
-              <button
-                className="px-6 py-3 bg-[#00ff00] text-black rounded-lg hover:bg-[#008000] font-cyber text-lg"
-                onClick={() => setShowShareModal(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
       <div className="retro-container">
       <h3 className="text-2xl font-retro text-matrix-green mb-6">
         {getWeekTitle(selectedWeek)}
@@ -461,15 +413,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
           )
         })}
 
-        {/* Share Button */}
-        <div className="mt-8 flex justify-center">
-          <button
-            onClick={copyToClipboard}
-            className="px-6 py-3 rounded-lg font-cyber text-lg bg-matrix-dark border-2 border-matrix-green text-matrix-green hover:bg-matrix-green hover:text-black transition-all duration-300 transform hover:scale-105 active:scale-95"
-          >
-            Flex on 'em! 💪
-          </button>
-        </div>
+
       </div>
     </div>
     </>
