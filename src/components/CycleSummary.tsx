@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import WorkoutPlan from './WorkoutPlan'
 import { calculateEliteProgress } from '../utils/eliteCalculations'
+import { FiEdit3, FiTrendingUp } from 'react-icons/fi'
 
 type CycleSummaryProps = {
   maxLifts: {
@@ -28,21 +29,23 @@ export default function CycleSummary({
   }
 
   return (
-    <div className="min-h-screen p-4 bg-matrix-dark/30">
+    <div className="min-h-screen p-2 bg-matrix-dark/30">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={onBack}
-            className="text-matrix-green font-cyber hover:text-matrix-green/80"
+            className="text-matrix-green font-cyber hover:text-matrix-green/80 p-2 rounded-full hover:bg-matrix-green/10 transition-colors"
+            title="Back to Form"
           >
-            ← Back to Form
+            <FiEdit3 size={24} />
           </button>
           <h2 className="text-3xl font-retro text-matrix-green">Current 4-Week Cycle</h2>
           <button
             onClick={onShowTimeline}
-            className="text-matrix-green font-cyber hover:text-matrix-green/80"
+            className="text-matrix-green font-cyber hover:text-matrix-green/80 p-2 rounded-full hover:bg-matrix-green/10 transition-colors"
+            title="View Timeline"
           >
-            View Timeline →
+            <FiTrendingUp size={24} />
           </button>
         </div>
 

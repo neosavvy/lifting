@@ -2,6 +2,10 @@ import { generateCycle } from '../utils/workoutCalculations'
 import { calculatePlates, formatPlateText } from '../utils/plateCalculations'
 import { useState, useEffect } from 'react'
 import { LiftStatus, WorkoutStatus } from '../types/workout'
+import { supabase } from '../lib/supabase'
+import { LiftCompletion } from '../types/liftCompletions'
+import { useAuth } from '../contexts/AuthContext'
+import { Toast } from './Toast'
 
 type WorkoutPlanProps = {
   maxLifts: {
@@ -16,12 +20,85 @@ type WorkoutPlanProps = {
 type LiftName = 'squat' | 'bench' | 'overhead' | 'deadlift'
 
 export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps) {
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [expandedSet, setExpandedSet] = useState<string | null>(null)
-  const [workoutStatus, setWorkoutStatus] = useState<WorkoutStatus>(() => {
-    const saved = localStorage.getItem('workoutStatus')
-    return saved ? JSON.parse(saved) : {}
-  })
+  const [workoutStatus, setWorkoutStatus] = useState<WorkoutStatus>({})
+  const { user } = useAuth()
   const cycle = generateCycle(maxLifts)
+
+  // Load initial lift completions
+  useEffect(() => {
+    const loadLiftCompletions = async () => {
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('lift_completions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('cycle_week', selectedWeek)
+
+      if (error) {
+        console.error('Error loading lift completions:', error)
+        return
+      }
+
+      if (!data) return
+
+      // Convert to WorkoutStatus format
+      const newStatus = { ...workoutStatus }
+      if (!newStatus[selectedWeek]) {
+        newStatus[selectedWeek] = {}
+      }
+
+      data.forEach((completion: LiftCompletion) => {
+        newStatus[selectedWeek][completion.lift_type] = completion.status as 'nailed' | 'failed'
+      })
+
+      setWorkoutStatus(newStatus)
+    }
+
+    loadLiftCompletions()
+  }, [user, selectedWeek])
+
+  const saveLiftCompletion = async (lift: LiftName, status: 'nailed' | 'failed') => {
+    if (!user) return
+
+    const workout = cycle[`week${selectedWeek}`][lift]
+    const completion: Partial<LiftCompletion> = {
+      user_id: user.id,
+      cycle_week: selectedWeek,
+      lift_type: lift,
+      status,
+      set1_weight: workout.weights[0],
+      set2_weight: workout.weights[1],
+      set3_weight: workout.weights[2],
+      amrap_reps: selectedWeek === 3 ? undefined : undefined // Only track AMRAP reps in week 3
+    }
+
+    const { error } = await supabase
+      .from('lift_completions')
+      .upsert(completion, { onConflict: 'user_id,cycle_week,lift_type' })
+
+    if (error) {
+      console.error('Error saving lift completion:', error)
+      return
+    }
+
+    // Update local state
+    const newStatus = { ...workoutStatus }
+    if (!newStatus[selectedWeek]) {
+      newStatus[selectedWeek] = {}
+    }
+    newStatus[selectedWeek][lift] = status
+    setWorkoutStatus(newStatus)
+    localStorage.setItem('workoutStatus', JSON.stringify(newStatus))
+  }
+
+  const toggleLiftStatus = (lift: LiftName, status: 'nailed' | 'failed') => {
+    saveLiftCompletion(lift, status)
+  }
   const lifts: LiftName[] = ['squat', 'bench', 'overhead', 'deadlift']
   const liftNames: Record<LiftName, string> = {
     squat: 'SQAT',
@@ -76,15 +153,43 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
     return `Lift! Week ${selectedWeek} (${weekName}) Results:\n${results}\n\n${liftDetails}\n\n${legend}\n\nCome at me! 🏋️\n#LiftLife #NoExcuses\n\nhttps://lift.neosavvy.com`
   }
 
-  const copyToClipboard = () => {
+  const copyToClipboard = async () => {
+    // Save all current lift statuses before sharing
+    if (user) {
+      const promises = lifts.map(lift => {
+        const status = workoutStatus[selectedWeek]?.[lift]
+        if (status) {
+          return saveLiftCompletion(lift, status)
+        }
+        return Promise.resolve()
+      })
+      await Promise.all(promises)
+    }
+
     const text = generateShareText()
     navigator.clipboard.writeText(text)
-      .then(() => alert('Copied to clipboard! Now go flex on your friends! 💪'))
-      .catch(() => alert('Failed to copy to clipboard'))
+      .then(() => {
+        setToastMessage('Copied to clipboard! Now go flex on your friends! 💪')
+        setToastType('success')
+        setShowToast(true)
+      })
+      .catch(() => {
+        setToastMessage('Failed to copy to clipboard')
+        setToastType('error')
+        setShowToast(true)
+      })
   }
 
   return (
-    <div className="retro-container">
+    <>
+      {showToast && (
+        <Toast
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setShowToast(false)}
+        />
+      )}
+      <div className="retro-container">
       <h3 className="text-2xl font-retro text-matrix-green mb-6">
         {getWeekTitle(selectedWeek)}
       </h3>
@@ -147,13 +252,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
               {/* Status Buttons */}
               <div className="mt-6 flex justify-center gap-4">
                 <button
-                  onClick={() => {
-                    const newStatus = { ...workoutStatus }
-                    if (!newStatus[selectedWeek]) newStatus[selectedWeek] = {}
-                    newStatus[selectedWeek][lift] = 'nailed'
-                    setWorkoutStatus(newStatus)
-                    localStorage.setItem('workoutStatus', JSON.stringify(newStatus))
-                  }}
+                  onClick={() => toggleLiftStatus(lift, 'nailed')}
                   className={`px-4 py-2 rounded-lg font-cyber text-sm transition-colors ${workoutStatus[selectedWeek]?.[lift] === 'nailed' 
                     ? 'bg-matrix-green text-black' 
                     : 'border border-matrix-green text-matrix-green hover:bg-matrix-green/20'}`}
@@ -161,13 +260,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
                   Nailed it! 💪
                 </button>
                 <button
-                  onClick={() => {
-                    const newStatus = { ...workoutStatus }
-                    if (!newStatus[selectedWeek]) newStatus[selectedWeek] = {}
-                    newStatus[selectedWeek][lift] = 'failed'
-                    setWorkoutStatus(newStatus)
-                    localStorage.setItem('workoutStatus', JSON.stringify(newStatus))
-                  }}
+                  onClick={() => toggleLiftStatus(lift, 'failed')}
                   className={`px-4 py-2 rounded-lg font-cyber text-sm transition-colors ${workoutStatus[selectedWeek]?.[lift] === 'failed' 
                     ? 'bg-red-600 text-black' 
                     : 'border border-red-600 text-red-600 hover:bg-red-600/20'}`}
@@ -196,5 +289,6 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
         </div>
       </div>
     </div>
+    </>
   )
 } 

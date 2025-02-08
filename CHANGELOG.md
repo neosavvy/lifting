@@ -1,5 +1,19 @@
 # Changelog
 
+## 2025-02-08 11:25:11 EST
+### Changed
+- Enhanced navigation and layout
+  - Replaced text navigation with icons (FiEdit3 for form, FiTrendingUp for timeline)
+  - Added tooltips to navigation icons
+  - Reduced padding by 50% for a more compact layout
+  - Added hover effects to navigation buttons
+- Improved user experience
+  - Auto-show workout plan when user has existing metrics
+  - Added loading state with Matrix-themed animation
+- Dependencies
+  - Added react-icons package for navigation icons
+
+
 ## 2025-02-08 09:55:17 EST
 ### Changed
 - Renamed application from "Matrix Lifts" to "Lift!"

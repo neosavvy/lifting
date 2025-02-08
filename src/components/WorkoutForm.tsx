@@ -57,7 +57,8 @@ export default function WorkoutForm() {
           if (metric) {
             setLatestMetric(metric)
             // Update form data with latest metric
-            setFormData({
+            const newFormData = {
+
               bodyWeight: metric.body_weight.toString(),
               yearsLifting: metric.years_lifting.toString(),
               maxes: {
@@ -68,7 +69,18 @@ export default function WorkoutForm() {
               },
               trackEliteGoals: metric.is_elite_fitness,
               cycleNumber: metric.cycle_number
-            })
+            }
+            setFormData(newFormData)
+            
+            // Auto-show plan if all required fields are filled
+            const hasAllFields = newFormData.bodyWeight && 
+              newFormData.yearsLifting && 
+              Object.values(newFormData.maxes).every(val => val) &&
+              newFormData.cycleNumber
+            
+            if (hasAllFields) {
+              setShowPlan(true)
+            }
           }
         })
         .catch(err => {
@@ -153,8 +165,16 @@ export default function WorkoutForm() {
     }
   }
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-4 bg-matrix-dark/30 flex justify-center items-center">
+        <div className="font-cyber text-matrix-green text-lg animate-pulse">Loading your plan...</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen p-4 bg-matrix-dark/30">
+    <div className="min-h-screen p-2 bg-matrix-dark/30">
       <div className="max-w-4xl mx-auto">
         {!showPlan ? (
           <form onSubmit={handleSubmit} className="max-w-md mx-auto">
