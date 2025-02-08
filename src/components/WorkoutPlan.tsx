@@ -212,40 +212,50 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
     return `${emoji} Just ${status} my ${liftNames[currentLift as LiftName]} at ${weight}lbs!\n\nWeek ${selectedWeek} (${weekName}) Results:\n${statusEmojis}\n\n${liftDetails}\n\nCome at me! 🏋️\n\nhttps://lift.neosavvy.com`
   }
 
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareText, setShareText] = useState('')
+
   const shareToClipboard = async (text: string) => {
     try {
       if (navigator.clipboard && window.isSecureContext) {
-        // Try using the Clipboard API
-        const permissionResult = await navigator.permissions.query({
-          name: 'clipboard-write' as PermissionName
-        })
-
-        if (permissionResult.state === 'granted' || permissionResult.state === 'prompt') {
+        try {
+          // Try using the Clipboard API first
           await navigator.clipboard.writeText(text)
           setToastMessage('Achievement copied! Share it with your friends! 🏋️')
           setToastType('success')
           setShowToast(true)
           return
+        } catch (clipboardError) {
+          console.error('Clipboard API failed:', clipboardError)
+          // Fall through to next method
         }
       }
 
-      // Fallback: Create a temporary textarea element
+      // Try execCommand as fallback
       const textArea = document.createElement('textarea')
       textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.opacity = '0'
       document.body.appendChild(textArea)
+      textArea.focus()
       textArea.select()
-      document.execCommand('copy')
+      
+      const successful = document.execCommand('copy')
       document.body.removeChild(textArea)
       
-      setToastMessage('Achievement copied! Share it with your friends! 🏋️')
-      setToastType('success')
-      setShowToast(true)
+      if (successful) {
+        setToastMessage('Achievement copied! Share it with your friends! 🏋️')
+        setToastType('success')
+        setShowToast(true)
+        return
+      }
     } catch (err) {
-      console.error('Failed to copy:', err)
-      setToastMessage('Failed to copy achievement. Try copying manually.')
-      setToastType('error')
-      setShowToast(true)
+      console.error('All copy methods failed:', err)
     }
+
+    // If all methods fail, show modal with selectable text
+    setShareText(text)
+    setShowShareModal(true)
   }
 
   const toggleLiftStatus = async (lift: LiftName, status: 'nailed' | 'failed') => {
@@ -331,8 +341,29 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
           onClose={() => setShowToast(false)}
         />
       )}
-      
-
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-black border-2 border-matrix-green rounded-lg p-4 min-h-[80vh] w-full max-w-2xl mx-4 flex flex-col">
+            <h3 className="text-xl font-retro text-matrix-green mb-3">Share Your Achievement</h3>
+            <p className="text-sm font-cyber text-matrix-green/70 mb-3">Select and copy the text below:</p>
+            <textarea
+              className="flex-grow w-full bg-black border-2 border-matrix-green/30 rounded-lg p-4 text-matrix-green font-mono text-base leading-relaxed focus:outline-none focus:border-matrix-green/50 mb-3"
+              value={shareText}
+              readOnly
+              onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+              style={{ resize: 'none' }}
+            />
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="px-6 py-2 font-cyber text-sm border-2 border-matrix-green text-matrix-green rounded-lg hover:bg-matrix-green/20 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="retro-container">
       <h3 className="text-2xl font-retro text-matrix-green mb-6">
         {getWeekTitle(selectedWeek)}

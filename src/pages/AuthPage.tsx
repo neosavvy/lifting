@@ -9,7 +9,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user) {
-      navigate('/')
+      navigate('/workout')
     }
   }, [user, navigate])
 

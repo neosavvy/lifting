@@ -15,9 +15,10 @@ type EliteTimelineProps = {
   bodyWeight: string
   yearsLifting: string
   onBack: () => void
+  isEliteFitness: boolean
 }
 
-export default function EliteTimeline({ maxLifts, bodyWeight, yearsLifting, onBack }: EliteTimelineProps) {
+export default function EliteTimeline({ maxLifts, bodyWeight, yearsLifting, onBack, isEliteFitness }: EliteTimelineProps) {
   const { user } = useAuth()
   const [completedLifts, setCompletedLifts] = useState<LiftCompletion[]>([])
 

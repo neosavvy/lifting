@@ -238,6 +238,7 @@ export default function WorkoutForm() {
           <EliteTimeline
             maxLifts={formData.maxes}
             bodyWeight={formData.bodyWeight}
+            yearsLifting={formData.yearsLifting}
             onBack={() => setShowTimeline(false)}
             isEliteFitness={formData.trackEliteGoals}
           />
@@ -361,6 +362,7 @@ export default function WorkoutForm() {
             bodyWeight={formData.bodyWeight}
             yearsLifting={formData.yearsLifting}
             onBack={() => setShowTimeline(false)}
+            isEliteFitness={formData.trackEliteGoals}
           />
         ) : (
           <CycleSummary 
