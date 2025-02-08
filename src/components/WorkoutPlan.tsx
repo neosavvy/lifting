@@ -1,6 +1,7 @@
 import { generateCycle } from '../utils/workoutCalculations'
 import { calculatePlates, formatPlateText } from '../utils/plateCalculations'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { LiftStatus, WorkoutStatus } from '../types/workout'
 
 type WorkoutPlanProps = {
   maxLifts: {
@@ -16,13 +17,17 @@ type LiftName = 'squat' | 'bench' | 'overhead' | 'deadlift'
 
 export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps) {
   const [expandedSet, setExpandedSet] = useState<string | null>(null)
+  const [workoutStatus, setWorkoutStatus] = useState<WorkoutStatus>(() => {
+    const saved = localStorage.getItem('workoutStatus')
+    return saved ? JSON.parse(saved) : {}
+  })
   const cycle = generateCycle(maxLifts)
   const lifts: LiftName[] = ['squat', 'bench', 'overhead', 'deadlift']
   const liftNames: Record<LiftName, string> = {
-    squat: 'Squat',
-    bench: 'Bench Press',
-    overhead: 'Overhead Press',
-    deadlift: 'Deadlift'
+    squat: 'SQAT',
+    bench: 'BNCH',
+    overhead: 'OHPR',
+    deadlift: 'DLFT'
   }
 
   const getWeekTitle = (week: number) => {
@@ -32,6 +37,50 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
 
   const toggleSetExpansion = (setKey: string) => {
     setExpandedSet(expandedSet === setKey ? null : setKey)
+  }
+
+  const getPlateEmoji = (weight: number) => {
+    switch (weight) {
+      case 45: return '🟦' // 🟦
+      case 35: return '🟨' // 🟨
+      case 25: return '🟩' // 🟩
+      default: return ''
+    }
+  }
+
+  const generateShareText = () => {
+    const weekName = selectedWeek === 3 ? '1+ Week' : `${5 - selectedWeek}s Week`
+    const results = lifts.map(lift => {
+      const status = workoutStatus[selectedWeek]?.[lift]
+      return status === 'nailed' ? '💪' : status === 'failed' ? '😤' : '❌'
+    }).join('')
+
+    // Get the heaviest set for each lift
+    const liftDetails = lifts.map(lift => {
+      const workout = cycle[`week${selectedWeek}`][lift]
+      const maxWeight = Math.max(...workout.weights)
+      const plates = calculatePlates(maxWeight)
+      
+      // Create a visual representation of plates using emojis
+      // Convert the array of plate weights into emojis
+      const plateEmojis = plates.standardPlates
+        .map(weight => getPlateEmoji(weight))
+        .join('')
+
+      // Pad the lift name and ensure consistent spacing
+      return `${liftNames[lift]}: ${plateEmojis}`
+    }).join('\n')
+    
+    const legend = '🟩 = 25lbs    🟨 = 35lbs    🟦 = 45lbs'
+    
+    return `Lift! Week ${selectedWeek} (${weekName}) Results:\n${results}\n\n${liftDetails}\n\n${legend}\n\nCome at me! 🏋️\n#LiftLife #NoExcuses\n\nhttps://lift.neosavvy.com`
+  }
+
+  const copyToClipboard = () => {
+    const text = generateShareText()
+    navigator.clipboard.writeText(text)
+      .then(() => alert('Copied to clipboard! Now go flex on your friends! 💪'))
+      .catch(() => alert('Failed to copy to clipboard'))
   }
 
   return (
@@ -94,6 +143,39 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
                   )
                 })}
               </div>
+              
+              {/* Status Buttons */}
+              <div className="mt-6 flex justify-center gap-4">
+                <button
+                  onClick={() => {
+                    const newStatus = { ...workoutStatus }
+                    if (!newStatus[selectedWeek]) newStatus[selectedWeek] = {}
+                    newStatus[selectedWeek][lift] = 'nailed'
+                    setWorkoutStatus(newStatus)
+                    localStorage.setItem('workoutStatus', JSON.stringify(newStatus))
+                  }}
+                  className={`px-4 py-2 rounded-lg font-cyber text-sm transition-colors ${workoutStatus[selectedWeek]?.[lift] === 'nailed' 
+                    ? 'bg-matrix-green text-black' 
+                    : 'border border-matrix-green text-matrix-green hover:bg-matrix-green/20'}`}
+                >
+                  Nailed it! 💪
+                </button>
+                <button
+                  onClick={() => {
+                    const newStatus = { ...workoutStatus }
+                    if (!newStatus[selectedWeek]) newStatus[selectedWeek] = {}
+                    newStatus[selectedWeek][lift] = 'failed'
+                    setWorkoutStatus(newStatus)
+                    localStorage.setItem('workoutStatus', JSON.stringify(newStatus))
+                  }}
+                  className={`px-4 py-2 rounded-lg font-cyber text-sm transition-colors ${workoutStatus[selectedWeek]?.[lift] === 'failed' 
+                    ? 'bg-red-600 text-black' 
+                    : 'border border-red-600 text-red-600 hover:bg-red-600/20'}`}
+                >
+                  Failed it! 😤
+                </button>
+              </div>
+              
               {selectedWeek !== 4 && (
                 <div className="mt-4 text-sm text-matrix-green/70 font-cyber">
                   AMRAP = As Many Reps As Possible
@@ -102,6 +184,16 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
             </div>
           )
         })}
+
+        {/* Share Button */}
+        <div className="mt-8 flex justify-center">
+          <button
+            onClick={copyToClipboard}
+            className="px-6 py-3 rounded-lg font-cyber text-lg bg-matrix-dark border-2 border-matrix-green text-matrix-green hover:bg-matrix-green hover:text-black transition-all duration-300 transform hover:scale-105 active:scale-95"
+          >
+            Flex on 'em! 💪
+          </button>
+        </div>
       </div>
     </div>
   )
