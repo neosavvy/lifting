@@ -4,6 +4,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Auth styles */
+.auth-input,
+.auth-input::placeholder,
+.auth-label,
+.auth-message {
+  color: #00ff00 !important;
+}
+
+.auth-input {
+  background-color: black !important;
+  border-color: #00ff00 !important;
+}
+
 :root {
   --matrix-green: #00ff00;
   --matrix-dark: #0a0a0a;

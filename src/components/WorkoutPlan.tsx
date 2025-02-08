@@ -155,31 +155,66 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
     return `Lift! Week ${selectedWeek} (${weekName}) Results:\n${results}\n\n${liftDetails}\n\n${legend}\n\nCome at me! 🏋️\n#LiftLife #NoExcuses\n\nhttps://lift.neosavvy.com`
   }
 
-  const copyToClipboard = async () => {
-    // Save all current lift statuses before sharing
-    if (user) {
-      const promises = lifts.map(lift => {
-        const status = workoutStatus[selectedWeek]?.[lift]
-        if (status) {
-          return saveLiftCompletion(lift, status)
-        }
-        return Promise.resolve()
-      })
-      await Promise.all(promises)
-    }
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareText, setShareText] = useState('')
 
-    const text = generateShareText()
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        setToastMessage('Copied to clipboard! Now go flex on your friends! 💪')
-        setToastType('success')
-        setShowToast(true)
-      })
-      .catch(() => {
-        setToastMessage('Failed to copy to clipboard')
-        setToastType('error')
-        setShowToast(true)
-      })
+  const copyToClipboard = async () => {
+    try {
+      // Save all current lift statuses before sharing
+      if (user) {
+        const promises = lifts.map(lift => {
+          const status = workoutStatus[selectedWeek]?.[lift]
+          if (status) {
+            return saveLiftCompletion(lift, status)
+          }
+          return Promise.resolve()
+        })
+        await Promise.all(promises)
+      }
+
+      const text = generateShareText()
+      
+      // Try using the Clipboard API first
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          // Check clipboard permission
+          const permissionResult = await navigator.permissions.query({
+            name: 'clipboard-write' as PermissionName
+          })
+
+          if (permissionResult.state === 'granted' || permissionResult.state === 'prompt') {
+            await navigator.clipboard.writeText(text)
+            setToastMessage('Copied to clipboard! Now go flex on your friends! 💪')
+            setToastType('success')
+            setShowToast(true)
+            return
+          } else {
+            throw new Error('Clipboard permission denied')
+          }
+        } catch (clipboardError) {
+          console.error('Clipboard API error:', clipboardError)
+          const errorMessage = clipboardError instanceof Error && clipboardError.message === 'Clipboard permission denied'
+            ? 'Please allow clipboard access or use manual copy'
+            : 'Clipboard access not available'
+          setToastMessage(errorMessage)
+          setToastType('error')
+          setShowToast(true)
+          // Fall through to manual copy
+        }
+      }
+
+      // Show manual copy interface for mobile or when Clipboard API fails
+      setShareText(text)
+      setShowShareModal(true)
+      setToastMessage('Select and copy the text below to share')
+      setToastType('success')
+      setShowToast(true)
+    } catch (error) {
+      console.error('Share error:', error)
+      setToastMessage('Failed to generate share text')
+      setToastType('error')
+      setShowToast(true)
+    }
   }
 
   return (
@@ -190,6 +225,45 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
           type={toastType}
           onClose={() => setShowToast(false)}
         />
+      )}
+      
+      {/* Share Modal for Mobile */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50">
+          <div className="bg-black border border-[#00ff00] rounded-lg p-4 w-[90%] h-[80vh] flex flex-col">
+            <h3 className="text-[#00ff00] text-xl mb-4 font-cyber">Copy this text to share:</h3>
+            <textarea
+              className="flex-1 w-full bg-black text-[#00ff00] border border-[#00ff00] rounded p-4 mb-4 font-mono text-lg"
+              value={shareText}
+              readOnly
+              ref={(textarea) => {
+                if (textarea) {
+                  textarea.select()
+                  // Try to show the native copy UI
+                  if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(textarea.value)
+                  }
+                }
+              }}
+              onClick={(e) => {
+                const textarea = e.target as HTMLTextAreaElement
+                textarea.select()
+                // Try to show the native copy UI
+                if (navigator.clipboard && window.isSecureContext) {
+                  navigator.clipboard.writeText(textarea.value)
+                }
+              }}
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                className="px-6 py-3 bg-[#00ff00] text-black rounded-lg hover:bg-[#008000] font-cyber text-lg"
+                onClick={() => setShowShareModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       <div className="retro-container">
       <h3 className="text-2xl font-retro text-matrix-green mb-6">

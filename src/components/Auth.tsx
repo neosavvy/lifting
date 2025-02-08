@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 
 export const Auth = () => {
   return (
-    <div className="w-full max-w-md mx-auto p-4">
+    <div className="w-full max-w-md mx-auto p-4 text-[#00ff00]">
       <SupabaseAuth
         supabaseClient={supabase}
         appearance={{
@@ -14,17 +14,12 @@ export const Auth = () => {
               colors: {
                 brand: '#00ff00',
                 brandAccent: '#008000',
-                inputBackground: '#000000',
-                inputText: '#00ff00',
-                inputBorder: '#00ff00',
-                inputBorderHover: '#008000',
-                inputBorderFocus: '#00ff00',
-                inputPlaceholder: '#006400',
-                messageText: '#00ff00',
-                anchorTextColor: '#00ff00',
-                anchorTextHoverColor: '#008000',
+                brandButtonText: 'white',
+                defaultButtonBackground: '#2e2e2e',
+                defaultButtonBackgroundHover: '#3e3e3e',
+                defaultButtonBorder: '#00ff00',
+                defaultButtonText: '#00ff00',
                 dividerBackground: '#00ff00',
-                labelTextColor: '#00ff00',
               },
               fonts: {
                 bodyFontFamily: `"Share Tech Mono", monospace`,
@@ -40,12 +35,12 @@ export const Auth = () => {
             },
           },
           className: {
-            container: 'auth-container',
-            button: 'auth-button text-black dark:text-[#00ff00]',
-            input: 'auth-input text-[#00ff00]',
-            label: 'auth-label text-[#00ff00]',
+            container: 'auth-container text-[#00ff00]',
+            button: 'auth-button bg-[#00ff00] text-black hover:bg-[#008000]',
+            input: 'auth-input text-[#00ff00] bg-black border-[#00ff00] border rounded placeholder-[#00ff00]',
+            label: 'auth-label text-[#00ff00] !important',
             anchor: 'text-[#00ff00] hover:text-[#008000]',
-            message: 'text-[#00ff00]',
+            message: 'text-[#00ff00] !important',
           },
         }}
         providers={[]}
