@@ -1,5 +1,5 @@
 import { generateCycle } from '../utils/workoutCalculations'
-import { calculatePlates, formatPlateText, EMPTY_SLOT } from '../utils/plateCalculations'
+import { calculatePlates, formatPlateEmojis, getPlateBreakdownText, EMPTY_SLOT } from '../utils/plateCalculations'
 import { useState, useEffect } from 'react'
 import { LiftStatus, WorkoutStatus } from '../types/workout'
 import { supabase } from '../lib/supabase'
@@ -15,11 +15,12 @@ type WorkoutPlanProps = {
     deadlift: string
   }
   selectedWeek: number
+  onStatusChange?: () => void
 }
 
 type LiftName = 'squat' | 'bench' | 'overhead' | 'deadlift'
 
-export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps) {
+export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: WorkoutPlanProps) {
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
@@ -37,6 +38,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
         .from('lift_completions')
         .select('*')
         .eq('user_id', user.id)
+        .eq('cycle_number', getCurrentCycle())
         .eq('cycle_week', selectedWeek)
 
       if (error) {
@@ -62,13 +64,52 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
     loadLiftCompletions()
   }, [user, selectedWeek])
 
-  const saveLiftCompletion = async (lift: LiftName, status: 'nailed' | 'failed') => {
+  const deleteLiftCompletion = async (lift: LiftName) => {
     if (!user) return
+
+    const { error } = await supabase
+      .from('lift_completions')
+      .delete()
+      .match({
+        user_id: user.id,
+        cycle_week: selectedWeek,
+        cycle_number: getCurrentCycle(),
+        lift_type: lift
+      })
+
+    if (error) {
+      console.error('Error deleting lift completion:', error)
+      return false
+    }
+
+    // Update local state
+    const newStatus = { ...workoutStatus }
+    if (newStatus[selectedWeek]) {
+      delete newStatus[selectedWeek][lift]
+    }
+    setWorkoutStatus(newStatus)
+    localStorage.setItem('workoutStatus', JSON.stringify(newStatus))
+    return true
+  }
+
+  const getCurrentCycle = () => {
+    // Get cycle number from localStorage
+    const savedData = localStorage.getItem('531_workout_data')
+    if (savedData) {
+      const data = JSON.parse(savedData)
+      return data.cycleNumber || 1
+    }
+    return 1
+  }
+
+  const saveLiftCompletion = async (lift: LiftName, status: 'nailed' | 'failed') => {
+    if (!user) return false
 
     const workout = cycle[`week${selectedWeek}`][lift]
     const completion: Partial<LiftCompletion> = {
       user_id: user.id,
       cycle_week: selectedWeek,
+      cycle_number: getCurrentCycle(),
       lift_type: lift,
       status,
       set1_weight: workout.weights[0],
@@ -83,7 +124,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
 
     if (error) {
       console.error('Error saving lift completion:', error)
-      return
+      return false
     }
 
     // Update local state
@@ -94,10 +135,37 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
     newStatus[selectedWeek][lift] = status
     setWorkoutStatus(newStatus)
     localStorage.setItem('workoutStatus', JSON.stringify(newStatus))
+    return true
   }
 
-  const toggleLiftStatus = (lift: LiftName, status: 'nailed' | 'failed') => {
-    saveLiftCompletion(lift, status)
+  const toggleLiftStatus = async (lift: LiftName, status: 'nailed' | 'failed') => {
+    const currentStatus = workoutStatus[selectedWeek]?.[lift]
+    
+    // If clicking the same status button again, remove the status
+    if (currentStatus === status) {
+      const success = await deleteLiftCompletion(lift)
+      if (success) {
+        setToastMessage(`Cleared ${lift} status`)
+        setToastType('success')
+        setShowToast(true)
+        // Trigger callback after successful deletion
+        if (onStatusChange) {
+          onStatusChange()
+        }
+      }
+    } else {
+      // Otherwise save the new status
+      const success = await saveLiftCompletion(lift, status)
+      if (success) {
+        setToastMessage(`${status === 'nailed' ? '💪' : '😤'} ${lift} marked as ${status}!`)
+        setToastType('success')
+        setShowToast(true)
+        // Trigger callback after successful save
+        if (onStatusChange) {
+          onStatusChange()
+        }
+      }
+    }
   }
   const lifts: LiftName[] = ['squat', 'bench', 'overhead', 'deadlift']
   const liftNames: Record<LiftName, string> = {
@@ -108,8 +176,8 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
   }
 
   const getWeekTitle = (week: number) => {
-    if (week === 4) return "Deload Week"
-    return `Week ${week} - ${week === 3 ? '1+ Week' : `${5 - week}s Week`}`
+    const weekSchedule = cycle[`week${week}`][lifts[0]]
+    return `Week ${week} - ${weekSchedule.name}`
   }
 
   const toggleSetExpansion = (setKey: string) => {
@@ -119,7 +187,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
 
 
   const generateShareText = () => {
-    const weekName = selectedWeek === 3 ? '1+ Week' : `${5 - selectedWeek}s Week`
+    const weekName = cycle[`week${selectedWeek}`][lifts[0]].name
     const results = lifts.map(lift => {
       const status = workoutStatus[selectedWeek]?.[lift]
       return status === 'nailed' ? '💪' : status === 'failed' ? '😤' : '❌'
@@ -132,7 +200,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
       const plates = calculatePlates(maxWeight)
       // Count actual plates (not emojis which are 2 chars each)
       const plateCount = plates.standardPlates.length + plates.smallPlates.length + plates.microPlates.length
-      const plateText = formatPlateText(plates)
+      const plateText = formatPlateEmojis(plates)
       return { lift, maxWeight, plateText, plateCount }
     })
 
@@ -152,7 +220,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
       'Plates: 🟦=45 🟨=35 🟩=25 | 🟡=10 🔵=5 ⚪️=2.5 🟣=1.25 ⭕️=0.5'
     ].join('\n')
 
-    return `Lift! Week ${selectedWeek} (${weekName}) Results:\n${results}\n\n${liftDetails}\n\n${legend}\n\nCome at me! 🏋️\n#LiftLife #NoExcuses\n\nhttps://lift.neosavvy.com`
+    return `Lift! Week ${selectedWeek} (${weekName}) Results:\n${results}\n\n${liftDetails}\n\nCome at me! 🏋️\n#LiftLife #NoExcuses\n\nhttps://lift.neosavvy.com`
   }
 
   const [showShareModal, setShowShareModal] = useState(false)
@@ -294,21 +362,21 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
                             Set {idx + 1}:
                           </span>
                           <span className="font-cyber text-matrix-green">
-                            {weight} lbs × {idx === 2 && selectedWeek !== 4 
-                              ? workout.reps.final 
-                              : workout.reps.main}
+                            {weight} lbs × {workout.sets[idx].reps}
                           </span>
                         </div>
                         
                         {isExpanded && (
                           <div className="mt-3 pt-3 border-t border-matrix-green/20">
                             <div className="text-sm font-cyber text-matrix-green/70">
-                              Plate Math:
+                              Plate Math (per side):
                             </div>
-                            <div className="font-cyber text-matrix-green mt-1">
-                              {formatPlateText(plateBreakdown)}
+                            <div className="font-cyber text-matrix-green mt-2 space-y-1">
+                              {getPlateBreakdownText(plateBreakdown).split('\n').map((line, i) => (
+                                <div key={i}>{line}</div>
+                              ))}
                             </div>
-                            <div className="text-xs font-cyber text-matrix-green/50 mt-2 space-y-1">
+                            <div className="text-xs font-cyber text-matrix-green/50 mt-3 space-y-1">
                               <div>Bar weight: 45 lbs</div>
                               <div>Load plates from heaviest to lightest</div>
                               {plateBreakdown.microPlates.length > 0 && (
@@ -329,27 +397,39 @@ export default function WorkoutPlan({ maxLifts, selectedWeek }: WorkoutPlanProps
               <div className="mt-6 flex justify-center gap-4">
                 <button
                   onClick={() => toggleLiftStatus(lift, 'nailed')}
-                  className={`px-4 py-2 rounded-lg font-cyber text-sm transition-colors ${workoutStatus[selectedWeek]?.[lift] === 'nailed' 
-                    ? 'bg-matrix-green text-black' 
-                    : 'border border-matrix-green text-matrix-green hover:bg-matrix-green/20'}`}
+                  className={`px-4 py-2 rounded-lg font-cyber text-sm transition-all relative
+                    ${workoutStatus[selectedWeek]?.[lift] === 'nailed'
+                      ? 'bg-matrix-green text-black hover:bg-matrix-green/90 active:scale-95'
+                      : 'border border-matrix-green text-matrix-green hover:bg-matrix-green/20'}
+                    transform hover:scale-105 active:scale-95`}
+                  title={workoutStatus[selectedWeek]?.[lift] === 'nailed' ? 'Click to clear status' : 'Mark as completed'}
                 >
-                  Nailed it! 💪
+                  {workoutStatus[selectedWeek]?.[lift] === 'nailed' ? (
+                    <>
+                      Nailed! 💪
+                      <span className="absolute -top-1 -right-1 text-xs bg-black text-matrix-green rounded-full px-1">×</span>
+                    </>
+                  ) : 'Nailed it! 💪'}
                 </button>
                 <button
                   onClick={() => toggleLiftStatus(lift, 'failed')}
-                  className={`px-4 py-2 rounded-lg font-cyber text-sm transition-colors ${workoutStatus[selectedWeek]?.[lift] === 'failed' 
-                    ? 'bg-red-600 text-black' 
-                    : 'border border-red-600 text-red-600 hover:bg-red-600/20'}`}
+                  className={`px-4 py-2 rounded-lg font-cyber text-sm transition-all relative
+                    ${workoutStatus[selectedWeek]?.[lift] === 'failed'
+                      ? 'bg-red-600 text-black hover:bg-red-500 active:scale-95'
+                      : 'border border-red-600 text-red-600 hover:bg-red-600/20'}
+                    transform hover:scale-105 active:scale-95`}
+                  title={workoutStatus[selectedWeek]?.[lift] === 'failed' ? 'Click to clear status' : 'Mark as failed'}
                 >
-                  Failed it! 😤
+                  {workoutStatus[selectedWeek]?.[lift] === 'failed' ? (
+                    <>
+                      Failed! 😤
+                      <span className="absolute -top-1 -right-1 text-xs bg-black text-red-500 rounded-full px-1">×</span>
+                    </>
+                  ) : 'Failed it! 😤'}
                 </button>
               </div>
               
-              {selectedWeek !== 4 && (
-                <div className="mt-4 text-sm text-matrix-green/70 font-cyber">
-                  AMRAP = As Many Reps As Possible
-                </div>
-              )}
+
             </div>
           )
         })}

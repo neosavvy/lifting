@@ -1,6 +1,7 @@
 export type LiftCompletion = {
   id: string
   user_id: string
+  cycle_number: number
   cycle_week: number
   lift_type: 'squat' | 'bench' | 'overhead' | 'deadlift'
   status: 'nailed' | 'failed'

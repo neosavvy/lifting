@@ -16,6 +16,9 @@ export default {
       fontFamily: {
         retro: ['VT323', 'monospace'],
         cyber: ['Share Tech Mono', 'monospace'],
+      },
+      gridTemplateColumns: {
+        '16': 'repeat(16, minmax(0, 1fr))',
       }
     },
   },

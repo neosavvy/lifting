@@ -64,7 +64,8 @@ const PLATE_EMOJIS: Record<number, string> = {
 
 export const EMPTY_SLOT = '⬜️'  // White square emoji
 
-export const formatPlateText = (plateBreakdown: PlateBreakdown, _minWidth: number = 0): string => {
+// Format plates as emojis for sharing
+export const formatPlateEmojis = (plateBreakdown: PlateBreakdown): string => {
   const { standardPlates, smallPlates, microPlates } = plateBreakdown
   
   // Combine all plates and sort by weight
@@ -75,4 +76,54 @@ export const formatPlateText = (plateBreakdown: PlateBreakdown, _minWidth: numbe
   return allPlates
     .map(plate => PLATE_EMOJIS[plate] || '')
     .join('')
-} 
+}
+
+// Format plates as text for web display
+export const formatPlateText = (plateBreakdown: PlateBreakdown): string => {
+  const { standardPlates, smallPlates, microPlates } = plateBreakdown
+  
+  const formatSection = (plates: number[], label: string) => {
+    if (plates.length === 0) return ''
+    
+    // Group identical plates and show count
+    const grouped = plates.reduce((acc, plate) => {
+      acc[plate] = (acc[plate] || 0) + 1
+      return acc
+    }, {} as Record<number, number>)
+    
+    const parts = Object.entries(grouped)
+      .sort(([a], [b]) => parseFloat(b) - parseFloat(a))
+      .map(([weight, count]) => `${count}x${weight} lb`)
+      .join(', ')
+    
+    return `${label}: ${parts}`
+  }
+  
+  const sections = [
+    formatSection(standardPlates, 'Standard'),
+    formatSection(smallPlates, 'Small'),
+    formatSection(microPlates, 'Micro')
+  ].filter(Boolean)
+  
+  return sections.join(' | ')
+}
+
+// Get a detailed breakdown of plates for web display
+export const getPlateBreakdownText = (plateBreakdown: PlateBreakdown): string => {
+  const { standardPlates, smallPlates, microPlates } = plateBreakdown
+  
+  // Combine all plates
+  const allPlates = [...standardPlates, ...smallPlates, ...microPlates]
+  
+  // Group identical plates
+  const grouped = allPlates.reduce((acc, plate) => {
+    acc[plate] = (acc[plate] || 0) + 1
+    return acc
+  }, {} as Record<number, number>)
+  
+  // Sort by weight (heaviest first) and format
+  return Object.entries(grouped)
+    .sort(([a], [b]) => parseFloat(b) - parseFloat(a))
+    .map(([weight, count]) => `${count} × ${weight} lb plates`)
+    .join('\n')
+}

@@ -1,4 +1,9 @@
 import { calculateProgressionTimeline } from '../utils/progressionCalculations'
+import { calculateEliteProgress } from '../utils/eliteCalculations'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
+import { LiftCompletion } from '../types/liftCompletions'
 
 type EliteTimelineProps = {
   maxLifts: {
@@ -13,10 +18,40 @@ type EliteTimelineProps = {
 }
 
 export default function EliteTimeline({ maxLifts, bodyWeight, yearsLifting, onBack }: EliteTimelineProps) {
+  const { user } = useAuth()
+  const [completedLifts, setCompletedLifts] = useState<LiftCompletion[]>([])
+
+  useEffect(() => {
+    const loadLiftCompletions = async () => {
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('lift_completions')
+        .select('*')
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Error loading lift completions:', error)
+        return
+      }
+
+      if (data) {
+        setCompletedLifts(data)
+      }
+    }
+
+    loadLiftCompletions()
+  }, [user])
+
   const { predictions, liftingLevel } = calculateProgressionTimeline(
     parseInt(bodyWeight),
     maxLifts,
     parseFloat(yearsLifting)
+  )
+
+  const eliteProgress = calculateEliteProgress(
+    parseInt(bodyWeight),
+    maxLifts
   )
 
   const formatDate = (date: Date) => {
@@ -64,6 +99,63 @@ export default function EliteTimeline({ maxLifts, bodyWeight, yearsLifting, onBa
                 Body Weight: {bodyWeight} lbs
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Elite Status Progress */}
+        <div className="retro-container mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-retro text-matrix-green">Elite Status Progress</h3>
+            <div className="font-cyber text-matrix-green">
+              Overall: {eliteProgress.overall}%
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div className="w-full h-2 bg-matrix-dark rounded-full">
+            <div 
+              className="h-full bg-matrix-green rounded-full transition-all duration-500"
+              style={{ width: `${eliteProgress.overall}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Current Progress */}
+        <div className="retro-container mb-8">
+          <h3 className="text-xl font-retro text-matrix-green mb-4">
+            Current Progress
+          </h3>
+          <div className="space-y-2">
+            {completedLifts.length > 0 ? (
+              completedLifts.map((completion, index) => (
+                <div key={index} className="text-sm font-cyber text-matrix-green/80">
+                  Week {completion.cycle_week} - {completion.lift_type}: {completion.status}
+                </div>
+              ))
+            ) : (
+              <div className="text-sm font-cyber text-matrix-green/60">
+                No lifts completed yet. Start lifting! 💪
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Current Progress */}
+        <div className="retro-container mb-8">
+          <h3 className="text-xl font-retro text-matrix-green mb-4">
+            Current Progress
+          </h3>
+          <div className="space-y-2">
+            {completedLifts.length > 0 ? (
+              completedLifts.map((completion, index) => (
+                <div key={index} className="text-sm font-cyber text-matrix-green/80">
+                  Week {completion.cycle_week} - {completion.lift_type}: {completion.status}
+                </div>
+              ))
+            ) : (
+              <div className="text-sm font-cyber text-matrix-green/60">
+                No lifts completed yet. Start lifting! 💪
+              </div>
+            )}
           </div>
         </div>
 

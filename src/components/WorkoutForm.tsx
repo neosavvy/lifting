@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import WorkoutPlan from './WorkoutPlan'
 import CycleSummary from './CycleSummary'
 import EliteTimeline from './EliteTimeline'
+import CycleReview from './CycleReview'
 import { useAuth } from '../contexts/AuthContext'
 import { FitnessMetric, getLatestFitnessMetric, saveFitnessMetric, metricsAreEqual } from '../lib/fitnessMetrics'
 
@@ -44,6 +45,7 @@ export default function WorkoutForm() {
   const [latestMetric, setLatestMetric] = useState<FitnessMetric | null>(null)
   const [showPlan, setShowPlan] = useState(false)
   const [showTimeline, setShowTimeline] = useState(false)
+  const [showReview, setShowReview] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -173,10 +175,57 @@ export default function WorkoutForm() {
     )
   }
 
+  const handleCommitNewGoals = async (newMaxes: typeof formData.maxes) => {
+    // Save new maxes and reset cycle
+    const newFormData = {
+      ...formData,
+      maxes: newMaxes,
+      cycleNumber: 1
+    }
+    setFormData(newFormData)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newFormData))
+
+    // Save to database
+    if (user) {
+      const newMetric = {
+        body_weight: parseFloat(formData.bodyWeight) || 0,
+        years_lifting: parseInt(formData.yearsLifting) || 0,
+        squat_weight: parseFloat(newMaxes.squat) || 0,
+        deadlift_weight: parseFloat(newMaxes.deadlift) || 0,
+        bench_weight: parseFloat(newMaxes.bench) || 0,
+        overhead_press_weight: parseFloat(newMaxes.overhead) || 0,
+        is_elite_fitness: Boolean(formData.trackEliteGoals),
+        cycle_number: 1
+      }
+      await saveFitnessMetric(newMetric)
+    }
+
+    setShowReview(false)
+    setShowPlan(true)
+  }
+
   return (
     <div className="min-h-screen p-2 bg-matrix-dark/30">
       <div className="max-w-4xl mx-auto">
-        {!showPlan ? (
+        {showReview ? (
+          <CycleReview
+            currentMaxes={formData.maxes}
+            bodyWeight={formData.bodyWeight}
+            isEliteFitness={formData.trackEliteGoals}
+            onBack={() => {
+              setShowReview(false)
+              setShowPlan(true)
+            }}
+            onCommit={handleCommitNewGoals}
+          />
+        ) : showTimeline ? (
+          <EliteTimeline
+            maxLifts={formData.maxes}
+            bodyWeight={formData.bodyWeight}
+            onBack={() => setShowTimeline(false)}
+            isEliteFitness={formData.trackEliteGoals}
+          />
+        ) : !showPlan ? (
           <form onSubmit={handleSubmit} className="max-w-md mx-auto">
             <div className="space-y-8 bg-black/40 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-matrix-green/30">
               {/* Header */}
@@ -303,6 +352,12 @@ export default function WorkoutForm() {
             bodyWeight={formData.bodyWeight}
             onBack={() => setShowPlan(false)}
             onShowTimeline={() => setShowTimeline(true)}
+            isEliteFitness={formData.trackEliteGoals}
+            currentWeek={formData.cycleNumber}
+            onStartReview={() => {
+              setShowPlan(false)
+              setShowReview(true)
+            }}
           />
         )}
       </div>

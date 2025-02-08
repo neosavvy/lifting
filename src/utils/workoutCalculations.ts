@@ -32,21 +32,37 @@ export const generateCycle = (maxLifts: MaxLifts) => {
   }
 
   const schedule = {
-    1: { // Week 1: 5 reps
-      main: '3 sets of 5 reps',
-      final: '5+ reps (AMRAP)'
+    1: { // 5-week
+      name: '5-week',
+      sets: [
+        { reps: '5 reps' },
+        { reps: '5 reps' },
+        { reps: '5+ reps' }
+      ]
     },
-    2: { // Week 2: 3 reps
-      main: '3 sets of 3 reps',
-      final: '3+ reps (AMRAP)'
+    2: { // 3-week
+      name: '3-week',
+      sets: [
+        { reps: '3 reps' },
+        { reps: '3 reps' },
+        { reps: '3+ reps' }
+      ]
     },
-    3: { // Week 3: Heavy singles
-      main: '3 sets',
-      final: '1+ reps (AMRAP)'
+    3: { // Fire Week
+      name: '🔥 Fire Week',
+      sets: [
+        { reps: '5 reps' },
+        { reps: '3 reps' },
+        { reps: '1+ reps' }
+      ]
     },
-    4: { // Week 4: Deload
-      main: '5 reps',
-      final: '5 reps'
+    4: { // Deload
+      name: 'Deload',
+      sets: [
+        { reps: '5 reps' },
+        { reps: '5 reps' },
+        { reps: '5 reps' }
+      ]
     }
   }
 
@@ -63,9 +79,11 @@ export const generateCycle = (maxLifts: MaxLifts) => {
     
     ;[1, 2, 3, 4].forEach((week) => {
       const weights = calculateWeek(trainingMax, week as 1 | 2 | 3 | 4)
+      const weekSchedule = schedule[week as 1 | 2 | 3 | 4]
       cycle[`week${week}`][lift] = {
         weights,
-        reps: schedule[week as 1 | 2 | 3 | 4]
+        name: weekSchedule.name,
+        sets: weekSchedule.sets
       }
     })
   })
