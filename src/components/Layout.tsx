@@ -44,7 +44,7 @@ export default function Layout({ children }: LayoutProps) {
     <div className="min-h-screen transition-colors duration-200">
       <nav className="bg-gray-100 dark:bg-matrix-light p-4">
         <div className="container mx-auto flex justify-between items-center">
-          <span className="font-cyber text-xl">Matrix Lifts</span>
+          <span className="font-cyber text-xl">Lift!</span>
           <div className="flex items-center gap-4">
             <div className="relative" ref={dropdownRef}>
               <button
@@ -54,14 +54,14 @@ export default function Layout({ children }: LayoutProps) {
                 {user ? 'Profile' : 'Sign In'}
               </button>
               {showDropdown && user && (
-                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-matrix-dark border border-matrix-light">
+                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-black border border-matrix-light">
                   <div className="py-1">
-                    <div className="px-4 py-2 text-sm text-gray-700 dark:text-matrix-light border-b border-matrix-light">
+                    <div className="px-4 py-2 text-sm text-black dark:text-[#00ff00] border-b border-matrix-light">
                       {user.email}
                     </div>
                     <button
                       onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-matrix-light hover:bg-gray-100 dark:hover:bg-matrix-light"
+                      className="block w-full text-left px-4 py-2 text-sm text-black dark:text-[#00ff00] hover:bg-gray-100 dark:hover:bg-matrix-dark"
                     >
                       Sign Out
                     </button>
