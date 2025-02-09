@@ -124,14 +124,21 @@ export default function CycleSummary({
     setCompletedWeeks(completed)
 
     // Calculate current week
+    let newWeek: number
     if (completed.length === 0) {
-      setCurrentWeekOverride(1)
+      newWeek = 1
     } else if (completed.length === 4) {
-      setCurrentWeekOverride(4)
+      newWeek = 4
     } else {
-      const nextWeek = Math.min(completed[completed.length - 1] + 1, 4)
-      setCurrentWeekOverride(nextWeek)
+      newWeek = Math.min(completed[completed.length - 1] + 1, 4)
     }
+
+    // If the week is changing, scroll to top
+    if (newWeek !== currentWeekOverride) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
+    setCurrentWeekOverride(newWeek)
   }
 
   // Callback for WorkoutPlan to notify us of status changes

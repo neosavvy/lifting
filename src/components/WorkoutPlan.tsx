@@ -278,27 +278,33 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
         // Generate and share the achievement
         const shareText = generateShareText(lift, status, maxWeight)
         await shareToClipboard(shareText)
-        
-        // Check if all lifts in the week are completed
-        const allLiftsCompleted = lifts.every(l => 
-          workoutStatus[selectedWeek]?.[l] === 'nailed' || 
-          workoutStatus[selectedWeek]?.[l] === 'failed'
-        )
-        
-        if (allLiftsCompleted) {
-          if (selectedWeek === 4) {
-            // For week 4, add a delay before scrolling to bottom
-            setTimeout(() => {
-              window.scrollTo({ 
-                top: document.documentElement.scrollHeight,
-                behavior: 'smooth' 
-              })
-            }, 500) // 500ms delay to allow new content to render
-          } else {
-            // For other weeks, scroll to top immediately
-            window.scrollTo({ top: 0, behavior: 'smooth' })
+
+        // Check if all lifts in the week are completed after a delay
+        setTimeout(() => {
+          const allLiftsCompleted = lifts.every(l => 
+            workoutStatus[selectedWeek]?.[l] === 'nailed' || 
+            workoutStatus[selectedWeek]?.[l] === 'failed'
+          );
+          
+          if (allLiftsCompleted) {
+            const mainElement = document.querySelector('main');
+            if (!mainElement) return;
+            
+            if (selectedWeek === 4) {
+              // For week 4, try to scroll to review section first
+              const reviewSection = document.querySelector('#review-section');
+              if (reviewSection) {
+                mainElement.scrollTop = reviewSection.offsetTop - mainElement.offsetTop;
+              } else {
+                // If review section not found, scroll to bottom
+                mainElement.scrollTop = mainElement.scrollHeight - mainElement.clientHeight;
+              }
+            } else {
+              // For weeks 1-3, scroll to top
+              mainElement.scrollTop = 0;
+            }
           }
-        }
+        }, 500) // 500ms delay to ensure state updates are complete
         
         if (onStatusChange) {
           onStatusChange()
@@ -359,7 +365,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
           </div>
         </div>
       )}
-      <div className="retro-container overflow-x-hidden max-w-full">
+      <div className="retro-container max-w-full">
       <h3 className="text-2xl font-retro text-matrix-green mb-6">
         {getWeekTitle(selectedWeek)}
       </h3>

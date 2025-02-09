@@ -82,7 +82,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </nav>
-      <main>{children}</main>
+      <main className="h-[calc(100vh-4rem)] overflow-y-auto scroll-smooth">{children}</main>
     </div>
   )
 } 
