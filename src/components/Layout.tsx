@@ -40,9 +40,21 @@ export default function Layout({ children }: LayoutProps) {
     navigate('/')
   }
 
+  // Prevent zoom on double tap
+  const preventZoom = (e: TouchEvent) => {
+    if (e.touches.length > 1) {
+      e.preventDefault();
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener('touchstart', preventZoom, { passive: false });
+    return () => document.removeEventListener('touchstart', preventZoom);
+  }, []);
+
   return (
-    <div className="min-h-screen transition-colors duration-200 overflow-x-hidden">
-      <nav className="bg-gray-100 dark:bg-matrix-light p-4 max-w-full">
+    <div className="min-h-screen transition-colors duration-200">
+      <nav className="bg-gray-100 dark:bg-matrix-light p-4 sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
           <span className="font-cyber text-xl">Lift!</span>
           <div className="flex items-center gap-4">
