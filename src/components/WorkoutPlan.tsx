@@ -77,7 +77,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
       const newCompletionIds = { ...completionIds }
       data.forEach((completion: LiftCompletion) => {
         const key = `${selectedWeek}-${completion.lift_type}`
-        newCompletionIds[key] = completion.id
+        newCompletionIds[key] = Number(completion.id)
       })
       setCompletionIds(newCompletionIds)
       
@@ -293,15 +293,19 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
             if (selectedWeek === 4) {
               // For week 4, try to scroll to review section first
               const reviewSection = document.querySelector('#review-section');
-              if (reviewSection) {
+              if (reviewSection && reviewSection instanceof HTMLElement && mainElement instanceof HTMLElement) {
                 mainElement.scrollTop = reviewSection.offsetTop - mainElement.offsetTop;
               } else {
                 // If review section not found, scroll to bottom
-                mainElement.scrollTop = mainElement.scrollHeight - mainElement.clientHeight;
+                if (mainElement instanceof HTMLElement) {
+                  mainElement.scrollTop = mainElement.scrollHeight - mainElement.clientHeight;
+                }
               }
             } else {
               // For weeks 1-3, scroll to top
-              mainElement.scrollTop = 0;
+              if (mainElement instanceof HTMLElement) {
+                mainElement.scrollTop = 0;
+              }
             }
           }
         }, 500) // 500ms delay to ensure state updates are complete
