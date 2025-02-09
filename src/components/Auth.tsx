@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 
 export const Auth = () => {
   return (
-    <div className="w-full max-w-md mx-auto p-4 text-[#00ff00]">
+    <div className="w-full max-w-full mx-auto text-[#00ff00] overflow-hidden">
       <SupabaseAuth
         supabaseClient={supabase}
         appearance={{
@@ -35,12 +35,12 @@ export const Auth = () => {
             },
           },
           className: {
-            container: 'auth-container text-[#00ff00]',
-            button: 'auth-button bg-[#00ff00] text-black hover:bg-[#008000]',
-            input: 'auth-input text-[#00ff00] bg-black border-[#00ff00] border rounded placeholder-[#00ff00]',
-            label: 'auth-label text-[#00ff00] !important',
-            anchor: 'text-[#00ff00] hover:text-[#008000]',
-            message: 'text-[#00ff00] !important',
+            container: 'auth-container text-[#00ff00] max-w-full overflow-hidden',
+            button: 'auth-button bg-[#00ff00] text-black hover:bg-[#008000] w-full',
+            input: 'auth-input text-[#00ff00] bg-black border-[#00ff00] border rounded placeholder-[#00ff00] w-full text-base',
+            label: 'auth-label text-[#00ff00] !important text-sm sm:text-base',
+            anchor: 'text-[#00ff00] hover:text-[#008000] text-sm sm:text-base',
+            message: 'text-[#00ff00] !important text-sm sm:text-base break-words',
           },
         }}
         providers={[]}

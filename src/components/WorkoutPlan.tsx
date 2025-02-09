@@ -364,7 +364,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
           </div>
         </div>
       )}
-      <div className="retro-container">
+      <div className="retro-container overflow-x-hidden max-w-full">
       <h3 className="text-2xl font-retro text-matrix-green mb-6">
         {getWeekTitle(selectedWeek)}
       </h3>
@@ -388,11 +388,11 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
                         onClick={() => toggleSetExpansion(setKey)}
                         className="w-full text-left"
                       >
-                        <div className="flex justify-between items-center">
-                          <span className="font-cyber text-matrix-green/80">
+                        <div className="flex justify-between items-center min-w-0">
+                          <span className="font-cyber text-matrix-green/80 mr-2 flex-shrink-0">
                             Set {idx + 1}:
                           </span>
-                          <span className="font-cyber text-matrix-green">
+                          <span className="font-cyber text-matrix-green flex-shrink-0">
                             {weight} lbs × {workout.sets[idx].reps}
                           </span>
                         </div>
@@ -425,10 +425,10 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
               </div>
               
               {/* Status Buttons */}
-              <div className="mt-6 flex justify-center gap-4">
+              <div className="mt-6 flex flex-wrap justify-center gap-4">
                 <button
                   onClick={() => toggleLiftStatus(lift, 'nailed')}
-                  className={`px-4 py-2 rounded-lg font-cyber text-sm transition-all relative
+                  className={`min-w-[120px] px-4 py-2 rounded-lg font-cyber text-sm transition-all relative
                     ${workoutStatus[selectedWeek]?.[lift] === 'nailed'
                       ? 'bg-matrix-green text-black hover:bg-matrix-green/90 active:scale-95'
                       : 'border border-matrix-green text-matrix-green hover:bg-matrix-green/20'}
@@ -444,7 +444,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
                 </button>
                 <button
                   onClick={() => toggleLiftStatus(lift, 'failed')}
-                  className={`px-4 py-2 rounded-lg font-cyber text-sm transition-all relative
+                  className={`min-w-[120px] px-4 py-2 rounded-lg font-cyber text-sm transition-all relative
                     ${workoutStatus[selectedWeek]?.[lift] === 'failed'
                       ? 'bg-red-600 text-black hover:bg-red-500 active:scale-95'
                       : 'border border-red-600 text-red-600 hover:bg-red-600/20'}

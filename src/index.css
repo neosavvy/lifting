@@ -23,11 +23,32 @@
   --matrix-light: #1a1a1a;
 }
 
-body {
-  @apply bg-white dark:bg-matrix-dark text-gray-900 dark:text-matrix-green;
+html, body {
+  @apply bg-white dark:bg-matrix-dark text-gray-900 dark:text-matrix-green overflow-x-hidden;
   font-family: 'Share Tech Mono', monospace;
+  width: 100%;
+  position: fixed;
+  height: 100%;
+}
+
+#root {
+  @apply overflow-x-hidden overflow-y-auto;
+  width: 100%;
+  height: 100%;
 }
 
 .retro-container {
-  @apply border-2 border-matrix-green bg-matrix-dark/50 rounded-lg p-4;
+  @apply border-2 border-matrix-green bg-matrix-dark/50 rounded-lg p-4 max-w-full;
+}
+
+/* Prevent horizontal scroll on auth forms */
+.supabase-auth-ui_ui-container {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.supabase-auth-ui_ui-button,
+.supabase-auth-ui_ui-input {
+  max-width: 100% !important;
+  width: 100% !important;
 } 

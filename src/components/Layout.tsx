@@ -41,8 +41,8 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   return (
-    <div className="min-h-screen transition-colors duration-200">
-      <nav className="bg-gray-100 dark:bg-matrix-light p-4">
+    <div className="min-h-screen transition-colors duration-200 overflow-x-hidden">
+      <nav className="bg-gray-100 dark:bg-matrix-light p-4 max-w-full">
         <div className="container mx-auto flex justify-between items-center">
           <span className="font-cyber text-xl">Lift!</span>
           <div className="flex items-center gap-4">
