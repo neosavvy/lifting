@@ -82,7 +82,11 @@ export default function CycleSummary({
 
     if (!data) return
 
-    console.log('Completed lifts data:', data)
+    console.log('Raw completed lifts data:', data.map(d => ({
+      cycle: d.cycle_number,
+      week: d.cycle_week,
+      lift: d.lift_type
+    })))
 
     // Store completed lifts for progress bar
     setCompletedLifts(data.map(d => ({ week: d.cycle_week, lift: d.lift_type })))
@@ -90,6 +94,7 @@ export default function CycleSummary({
     // Count total lift completions for the cycle
     const totalCompletions = data?.length || 0
     const isFullCycleComplete = totalCompletions === 16 // 4 lifts × 4 weeks
+    console.log('Total completions:', { total: totalCompletions, isComplete: isFullCycleComplete })
 
     // Group completions by week for UI purposes
     const weekCompletions = data.reduce((acc, completion) => {
@@ -97,6 +102,17 @@ export default function CycleSummary({
       acc[completion.cycle_week].add(completion.lift_type)
       return acc
     }, {} as Record<number, Set<string>>)
+
+    console.log('Week by week completions:', Object.fromEntries(
+      Object.entries(weekCompletions).map(([week, lifts]) => [
+        week,
+        {
+          completedLifts: Array.from(lifts),
+          totalCompleted: lifts.size,
+          isWeekComplete: lifts.size === 4
+        }
+      ])
+    ))
 
     // A week is completed if all 4 lifts are marked
     const completed = Object.entries(weekCompletions)

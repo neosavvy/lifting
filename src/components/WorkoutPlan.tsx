@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase'
 import { LiftCompletion } from '../types/liftCompletions'
 import { useAuth } from '../contexts/AuthContext'
 import { Toast } from './Toast'
+import { getCurrentCycle } from '../utils/cycleUtils'
 
 type WorkoutPlanProps = {
   maxLifts: {
@@ -26,22 +27,26 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [expandedSet, setExpandedSet] = useState<string | null>(null)
   const [workoutStatus, setWorkoutStatus] = useState<WorkoutStatus>({})
-  const [currentCycle, setCurrentCycle] = useState(1)
+  const [completionIds, setCompletionIds] = useState<Record<string, number>>({})
   const { user } = useAuth()
   const cycle = generateCycle(maxLifts)
 
-  // Load initial lift completions
+  // Load lift completions for the current cycle and week
   useEffect(() => {
-    // Reset workout status when cycle changes
-    setWorkoutStatus({})
     const loadLiftCompletions = async () => {
       if (!user) return
+
+      const currentCycle = await getCurrentCycle(user.id)
+      console.log('Current cycle from DB:', currentCycle)
+
+      // Reset workout status before loading new data
+      setWorkoutStatus({})
 
       const { data, error } = await supabase
         .from('lift_completions')
         .select('*')
         .eq('user_id', user.id)
-        .eq('cycle_number', getCurrentCycle())
+        .eq('cycle_number', currentCycle)
         .eq('cycle_week', selectedWeek)
 
       if (error) {
@@ -49,6 +54,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
         return
       }
 
+      console.log('Lift completions data:', data)
       if (!data) return
 
       // Convert to WorkoutStatus format
@@ -58,27 +64,46 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
       }
 
       data.forEach((completion: LiftCompletion) => {
+        console.log('Setting status for:', {
+          week: selectedWeek,
+          lift: completion.lift_type,
+          status: completion.status,
+          cycle: completion.cycle_number
+        })
         newStatus[selectedWeek][completion.lift_type] = completion.status as 'nailed' | 'failed'
       })
 
+      // Store the completion IDs for later deletion
+      const newCompletionIds = { ...completionIds }
+      data.forEach((completion: LiftCompletion) => {
+        const key = `${selectedWeek}-${completion.lift_type}`
+        newCompletionIds[key] = completion.id
+      })
+      setCompletionIds(newCompletionIds)
+      
       setWorkoutStatus(newStatus)
     }
 
     loadLiftCompletions()
-  }, [user, selectedWeek, currentCycle])
+  }, [user, selectedWeek])
 
   const deleteLiftCompletion = async (lift: LiftName) => {
     if (!user) return
 
+    const completionKey = `${selectedWeek}-${lift}`
+    const completionId = completionIds[completionKey]
+    
+    if (!completionId) {
+      console.error('No completion ID found for:', { week: selectedWeek, lift })
+      return false
+    }
+
+    console.log('Deleting lift completion:', { id: completionId, week: selectedWeek, lift })
+
     const { error } = await supabase
       .from('lift_completions')
       .delete()
-      .match({
-        user_id: user.id,
-        cycle_week: selectedWeek,
-        cycle_number: getCurrentCycle(),
-        lift_type: lift
-      })
+      .eq('id', completionId)
 
     if (error) {
       console.error('Error deleting lift completion:', error)
@@ -95,48 +120,15 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
     return true
   }
 
-  // Get current cycle number from database
-  useEffect(() => {
-    const fetchCurrentCycle = async () => {
-      if (!user) return
-
-      console.log('Fetching current cycle from fitness_metrics...')
-      const { data, error } = await supabase
-        .from('fitness_metrics')
-        .select('cycle_number, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (error) {
-        console.error('Error getting current cycle:', error)
-        return
-      }
-
-      console.log('Latest fitness metrics entries:', data)
-
-      if (data && data.length > 0) {
-        console.log('Setting current cycle to:', data[0].cycle_number)
-        console.log('From entry created at:', new Date(data[0].created_at).toLocaleString())
-        setCurrentCycle(data[0].cycle_number)
-      } else {
-        console.log('No fitness metrics entries found')
-      }
-    }
-
-    fetchCurrentCycle()
-  }, [user])
-
-  const getCurrentCycle = () => currentCycle
-
   const saveLiftCompletion = async (lift: LiftName, status: 'nailed' | 'failed') => {
     if (!user) return false
 
     const workout = cycle[`week${selectedWeek}`][lift]
+    const currentCycle = await getCurrentCycle(user.id)
     const completion: Partial<LiftCompletion> = {
       user_id: user.id,
       cycle_week: selectedWeek,
-      cycle_number: getCurrentCycle(),
+      cycle_number: currentCycle,
       lift_type: lift,
       status,
       set1_weight: workout.weights[0],
@@ -145,9 +137,12 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
       amrap_reps: selectedWeek === 3 ? undefined : undefined // Only track AMRAP reps in week 3
     }
 
-    const { error } = await supabase
+    console.log('Inserting lift completion:', { ...completion })
+
+    const { data, error } = await supabase
       .from('lift_completions')
-      .upsert(completion, { onConflict: 'user_id,cycle_week,lift_type' })
+      .insert(completion)
+      .select('id')
 
     if (error) {
       console.error('Error saving lift completion:', error)
