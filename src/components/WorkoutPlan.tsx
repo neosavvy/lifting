@@ -27,7 +27,6 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [expandedSet, setExpandedSet] = useState<string | null>(null)
   const [workoutStatus, setWorkoutStatus] = useState<WorkoutStatus>({})
-  const [completionIds, setCompletionIds] = useState<Record<string, number>>({})
   const { user } = useAuth()
   const cycle = generateCycle(maxLifts)
 
@@ -73,14 +72,6 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
         newStatus[selectedWeek][completion.lift_type] = completion.status as 'nailed' | 'failed'
       })
 
-      // Store the completion IDs for later deletion
-      const newCompletionIds = { ...completionIds }
-      data.forEach((completion: LiftCompletion) => {
-        const key = `${selectedWeek}-${completion.lift_type}`
-        newCompletionIds[key] = Number(completion.id)
-      })
-      setCompletionIds(newCompletionIds)
-      
       setWorkoutStatus(newStatus)
     }
 
@@ -90,20 +81,15 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
   const deleteLiftCompletion = async (lift: LiftName) => {
     if (!user) return
 
-    const completionKey = `${selectedWeek}-${lift}`
-    const completionId = completionIds[completionKey]
-    
-    if (!completionId) {
-      console.error('No completion ID found for:', { week: selectedWeek, lift })
-      return false
-    }
-
-    console.log('Deleting lift completion:', { id: completionId, week: selectedWeek, lift })
+    const currentCycle = await getCurrentCycle(user.id)
 
     const { error } = await supabase
       .from('lift_completions')
       .delete()
-      .eq('id', completionId)
+      .eq('user_id', user.id)
+      .eq('cycle_number', currentCycle)
+      .eq('cycle_week', selectedWeek)
+      .eq('lift_type', lift)
 
     if (error) {
       console.error('Error deleting lift completion:', error)
@@ -117,6 +103,8 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
     }
     setWorkoutStatus(newStatus)
     localStorage.setItem('workoutStatus', JSON.stringify(newStatus))
+
+
     return true
   }
 
@@ -157,6 +145,9 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
     newStatus[selectedWeek][lift] = status
     setWorkoutStatus(newStatus)
     localStorage.setItem('workoutStatus', JSON.stringify(newStatus))
+
+
+
     return true
   }
 
