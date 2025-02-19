@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import WorkoutPlan from './WorkoutPlan'
 import CycleSummary from './CycleSummary'
 import EliteTimeline from './EliteTimeline'
@@ -6,6 +7,7 @@ import CycleReview from './CycleReview'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { FitnessMetric, getLatestFitnessMetric, saveFitnessMetric, metricsAreEqual } from '../lib/fitnessMetrics'
+import { GiWeightLiftingUp } from 'react-icons/gi'
 
 type FormData = {
   bodyWeight: string
@@ -20,11 +22,16 @@ type FormData = {
   cycleNumber: number
 }
 
+type WorkoutFormProps = {
+  initialShowPlan?: boolean
+}
+
 type MaxesKey = keyof FormData['maxes']
 
 const STORAGE_KEY = '531_workout_data'
 
-export default function WorkoutForm() {
+export default function WorkoutForm({ initialShowPlan = true }: WorkoutFormProps) {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [formData, setFormData] = useState<FormData>(() => {
     // Load initial data from localStorage on component mount
@@ -44,7 +51,7 @@ export default function WorkoutForm() {
   })
 
   const [latestMetric, setLatestMetric] = useState<FitnessMetric | null>(null)
-  const [showPlan, setShowPlan] = useState(false)
+  const [showPlan, setShowPlan] = useState(initialShowPlan)
   const [showTimeline, setShowTimeline] = useState(false)
   const [showReview, setShowReview] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -61,7 +68,6 @@ export default function WorkoutForm() {
             setLatestMetric(metric)
             // Update form data with latest metric
             const newFormData = {
-
               bodyWeight: metric.body_weight.toString(),
               yearsLifting: metric.years_lifting.toString(),
               maxes: {
@@ -75,14 +81,16 @@ export default function WorkoutForm() {
             }
             setFormData(newFormData)
             
-            // Auto-show plan if all required fields are filled
-            const hasAllFields = newFormData.bodyWeight && 
-              newFormData.yearsLifting && 
-              Object.values(newFormData.maxes).every(val => val) &&
-              newFormData.cycleNumber
-            
-            if (hasAllFields) {
-              setShowPlan(true)
+            // Only auto-show plan if initialShowPlan is true
+            if (initialShowPlan) {
+              const hasAllFields = newFormData.bodyWeight && 
+                newFormData.yearsLifting && 
+                Object.values(newFormData.maxes).every(val => val) &&
+                newFormData.cycleNumber
+              
+              if (hasAllFields) {
+                setShowPlan(true)
+              }
             }
           }
         })
@@ -94,7 +102,7 @@ export default function WorkoutForm() {
           setIsLoading(false)
         })
     }
-  }, [user])
+  }, [user, initialShowPlan])
 
   // Save to localStorage whenever formData changes
   useEffect(() => {
@@ -220,6 +228,17 @@ export default function WorkoutForm() {
     setShowPlan(true)
   }
 
+  const handleShowTimeline = () => {
+    navigate('/elite-timeline', {
+      state: {
+        maxLifts: formData.maxes,
+        bodyWeight: formData.bodyWeight,
+        yearsLifting: formData.yearsLifting,
+        isEliteFitness: formData.trackEliteGoals
+      }
+    })
+  }
+
   return (
     <div className="min-h-screen p-2 bg-matrix-dark/30">
       <div className="max-w-4xl mx-auto">
@@ -234,27 +253,27 @@ export default function WorkoutForm() {
             }}
             onCommit={handleCommitNewGoals}
           />
-        ) : showTimeline ? (
-          <EliteTimeline
-            maxLifts={formData.maxes}
-            bodyWeight={formData.bodyWeight}
-            yearsLifting={formData.yearsLifting}
-            onBack={() => setShowTimeline(false)}
-            isEliteFitness={formData.trackEliteGoals}
-          />
         ) : !showPlan ? (
           <form onSubmit={handleSubmit} className="max-w-md mx-auto">
             <div className="space-y-8 bg-black/40 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-matrix-green/30">
-              {/* Header */}
-              <div className="text-center">
-                <h2 className="text-3xl font-retro text-matrix-green mb-2">Enter Your Stats</h2>
-                <p className="text-sm font-cyber text-matrix-green/70">All weights in pounds (lbs)</p>
-                {error && (
-                  <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-300 text-sm">
-                    {error}
-                  </div>
-                )}
+              <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-retro text-matrix-green">Enter Your Stats</h2>
+                <button
+                  onClick={() => navigate('/workout')}
+                  className="text-matrix-green font-cyber bg-matrix-dark/40 hover:bg-matrix-green/20 
+                           p-3 rounded-lg border border-matrix-green/30 hover:border-matrix-green 
+                           transition-all duration-200 transform hover:scale-105 hover:shadow-glow"
+                  title="Back to Workout"
+                >
+                  <GiWeightLiftingUp size={24} />
+                </button>
               </div>
+              <p className="text-sm font-cyber text-matrix-green/70 text-center -mt-4">All weights in pounds (lbs)</p>
+              {error && (
+                <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg text-red-300 text-sm">
+                  {error}
+                </div>
+              )}
               
               {/* Basic Info Section */}
               <div className="space-y-6">
@@ -356,20 +375,12 @@ export default function WorkoutForm() {
               </button>
             </div>
           </form>
-        ) : showTimeline ? (
-          <EliteTimeline 
-            maxLifts={formData.maxes}
-            bodyWeight={formData.bodyWeight}
-            yearsLifting={formData.yearsLifting}
-            onBack={() => setShowTimeline(false)}
-            isEliteFitness={formData.trackEliteGoals}
-          />
         ) : (
           <CycleSummary 
             maxLifts={formData.maxes}
             bodyWeight={formData.bodyWeight}
-            onBack={() => setShowPlan(false)}
-            onShowTimeline={() => setShowTimeline(true)}
+            onBack={() => navigate('/enter-your-stats')}
+            onShowTimeline={handleShowTimeline}
             isEliteFitness={formData.trackEliteGoals}
             currentWeek={formData.cycleNumber}
             onStartReview={() => {

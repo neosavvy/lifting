@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .shadow-glow {
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+  }
+}
+
 /* Prevent unwanted zoom and horizontal scroll on mobile */
 html, body {
   touch-action: pan-y;
