@@ -5,6 +5,7 @@ import { GiWeightLiftingUp } from 'react-icons/gi'
 import { calculateEliteProgress } from '../utils/eliteCalculations'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { convertToPreferredUnit } from '../utils/weightConversions'
 
 type CycleSummaryProps = {
   maxLifts: {
@@ -163,6 +164,12 @@ export default function CycleSummary({
     setSelectedWeek(week === selectedWeek ? null : week)
   }
 
+  // Get the preferred unit for display
+  const getDisplayWeight = (weightInLbs: string | number) => {
+    const { value, unit } = convertToPreferredUnit(Number(weightInLbs))
+    return `${value} ${unit}`
+  }
+
   return (
     <div className="min-h-screen p-2 bg-matrix-dark/30">
       <div className="max-w-4xl mx-auto">
@@ -198,10 +205,10 @@ export default function CycleSummary({
                   {lift.replace('overhead', 'Overhead Press')}
                 </div>
                 <div className="text-2xl font-cyber text-matrix-green">
-                  {weight} lbs
+                  {getDisplayWeight(weight)}
                 </div>
                 <div className="text-sm font-cyber text-matrix-green/70">
-                  Training Max: {Math.round(parseInt(weight) * 0.9)} lbs
+                  Training Max: {getDisplayWeight(Math.round(parseInt(weight) * 0.9))}
                 </div>
               </div>
             ))}
@@ -214,7 +221,7 @@ export default function CycleSummary({
                 3-Lift Total
               </div>
               <div className="text-2xl font-cyber text-matrix-green">
-                {parseInt(maxLifts.squat) + parseInt(maxLifts.bench) + parseInt(maxLifts.deadlift)} lbs
+                {getDisplayWeight(parseInt(maxLifts.squat) + parseInt(maxLifts.bench) + parseInt(maxLifts.deadlift))}
               </div>
               <div className="text-sm font-cyber text-matrix-green/70">
                 Squat + Bench + Deadlift
@@ -225,7 +232,7 @@ export default function CycleSummary({
                 4-Lift Total
               </div>
               <div className="text-2xl font-cyber text-matrix-green">
-                {parseInt(maxLifts.squat) + parseInt(maxLifts.bench) + parseInt(maxLifts.deadlift) + parseInt(maxLifts.overhead)} lbs
+                {getDisplayWeight(parseInt(maxLifts.squat) + parseInt(maxLifts.bench) + parseInt(maxLifts.deadlift) + parseInt(maxLifts.overhead))}
               </div>
               <div className="text-sm font-cyber text-matrix-green/70">
                 All Lifts Including Overhead Press

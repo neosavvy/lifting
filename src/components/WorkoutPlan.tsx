@@ -7,6 +7,7 @@ import { LiftCompletion } from '../types/liftCompletions'
 import { useAuth } from '../contexts/AuthContext'
 import { Toast } from './Toast'
 import { getCurrentCycle } from '../utils/cycleUtils'
+import { convertToPreferredUnit } from '../utils/weightConversions'
 
 type WorkoutPlanProps = {
   maxLifts: {
@@ -324,9 +325,11 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
     setExpandedSet(expandedSet === setKey ? null : setKey)
   }
 
-
-
-
+  // Get the preferred unit for display
+  const getDisplayWeight = (weightInLbs: number) => {
+    const { value, unit } = convertToPreferredUnit(weightInLbs)
+    return `${value} ${unit}`
+  }
 
   return (
     <>
@@ -389,7 +392,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
                             Set {idx + 1}:
                           </span>
                           <span className="font-cyber text-matrix-green flex-shrink-0">
-                            {weight} lbs × {workout.sets[idx].reps}
+                            {getDisplayWeight(weight)} × {workout.sets[idx].reps} reps
                           </span>
                         </div>
                         
@@ -399,12 +402,19 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
                               Plate Math (per side):
                             </div>
                             <div className="font-cyber text-matrix-green mt-2 space-y-1">
-                              {getPlateBreakdownText(plateBreakdown).split('\n').map((line, i) => (
-                                <div key={i}>{line}</div>
-                              ))}
+                              {getPlateBreakdownText(plateBreakdown).split('\n').map((line, i) => {
+                                // Convert the plate weights in the breakdown text
+                                const match = line.match(/(\d+) × (\d+\.?\d*) lb plates/)
+                                if (match) {
+                                  const [_, count, weight] = match
+                                  const { value, unit } = convertToPreferredUnit(Number(weight))
+                                  return <div key={i}>{count} × {value} {unit} plates</div>
+                                }
+                                return <div key={i}>{line}</div>
+                              })}
                             </div>
                             <div className="text-xs font-cyber text-matrix-green/50 mt-3 space-y-1">
-                              <div>Bar weight: 45 lbs</div>
+                              <div>Bar weight: {getDisplayWeight(45)}</div>
                               <div>Load plates from heaviest to lightest</div>
                               {plateBreakdown.microPlates.length > 0 && (
                                 <div className="text-matrix-green/40">
