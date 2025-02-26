@@ -7,6 +7,7 @@ import { LiftCompletion } from '../types/liftCompletions'
 import { useAuth } from '../contexts/AuthContext'
 import { Toast } from './Toast'
 import { getCurrentCycle } from '../utils/cycleUtils'
+import { convertToPreferredUnit } from '../utils/weightConversions'
 
 type WorkoutPlanProps = {
   maxLifts: {
@@ -21,12 +22,18 @@ type WorkoutPlanProps = {
 
 type LiftName = 'squat' | 'bench' | 'overhead' | 'deadlift'
 
+type WorkoutSet = {
+  reps: number | string
+  percentage: number
+}
+
 export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: WorkoutPlanProps) {
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [expandedSet, setExpandedSet] = useState<string | null>(null)
   const [workoutStatus, setWorkoutStatus] = useState<WorkoutStatus>({})
+  const [selectedAmrapReps, setSelectedAmrapReps] = useState<Record<string, number>>({})
   const { user } = useAuth()
   const cycle = generateCycle(maxLifts)
 
@@ -113,6 +120,12 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
 
     const workout = cycle[`week${selectedWeek}`][lift]
     const currentCycle = await getCurrentCycle(user.id)
+    
+    // Find the AMRAP set if it exists
+    const amrapSetIndex = workout.sets.findIndex((set: WorkoutSet) => set.reps.toString().includes('+'))
+    const amrapKey = `${lift}-${amrapSetIndex}`
+    const amrapReps = amrapSetIndex >= 0 ? (selectedAmrapReps[amrapKey] || 0) : 0
+
     const completion: Partial<LiftCompletion> = {
       user_id: user.id,
       cycle_week: selectedWeek,
@@ -122,7 +135,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
       set1_weight: workout.weights[0],
       set2_weight: workout.weights[1],
       set3_weight: workout.weights[2],
-      amrap_reps: selectedWeek === 3 ? undefined : undefined // Only track AMRAP reps in week 3
+      amrap_reps: amrapReps
     }
 
     console.log('Inserting lift completion:', { ...completion })
@@ -149,6 +162,14 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
 
 
     return true
+  }
+
+  const handleAmrapSelect = (lift: string, setIndex: number, reps: number) => {
+    const key = `${lift}-${setIndex}`
+    setSelectedAmrapReps(prev => ({
+      ...prev,
+      [key]: reps
+    }))
   }
 
   const formatPlatesWithPlaceholders = (plates: ReturnType<typeof calculatePlates>, minPlaceholders: number = 5) => {
@@ -324,9 +345,11 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
     setExpandedSet(expandedSet === setKey ? null : setKey)
   }
 
-
-
-
+  // Get the preferred unit for display
+  const getDisplayWeight = (weightInLbs: number) => {
+    const { value, unit } = convertToPreferredUnit(weightInLbs)
+    return `${value} ${unit}`
+  }
 
   return (
     <>
@@ -367,6 +390,8 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
       <div className="space-y-6">
         {lifts.map(lift => {
           const workout = cycle[`week${selectedWeek}`][lift]
+          const hasAmrapSet = workout.sets.some((set: WorkoutSet) => set.reps.toString().includes('+'))
+          
           return (
             <div key={lift} className="border border-matrix-green/30 rounded-lg p-4">
               <h4 className="text-xl font-cyber text-matrix-green mb-3">
@@ -377,6 +402,8 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
                   const setKey = `${lift}-${idx}`
                   const plateBreakdown = calculatePlates(weight)
                   const isExpanded = expandedSet === setKey
+                  const isAmrapSet = workout.sets[idx].reps.toString().includes('+')
+                  const selectedReps = selectedAmrapReps[setKey] || 0
                   
                   return (
                     <div key={idx} className="border border-matrix-green/10 rounded-lg p-3 hover:border-matrix-green/30 transition-colors">
@@ -389,22 +416,59 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
                             Set {idx + 1}:
                           </span>
                           <span className="font-cyber text-matrix-green flex-shrink-0">
-                            {weight} lbs × {workout.sets[idx].reps}
+                            {getDisplayWeight(weight)} × {workout.sets[idx].reps} reps
+                            {isAmrapSet && selectedReps > 0 && (
+                              <span className="ml-2 text-matrix-green/70">(+{selectedReps})</span>
+                            )}
                           </span>
                         </div>
                         
                         {isExpanded && (
                           <div className="mt-3 pt-3 border-t border-matrix-green/20">
+                            {isAmrapSet && (
+                              <div className="mb-4">
+                                <div className="text-sm font-cyber text-matrix-green/70 mb-2">
+                                  Extra Reps on AMRAP Set
+                                </div>
+                                <div className="flex gap-3">
+                                  {[0, 1, 2, 3].map(reps => (
+                                    <button
+                                      key={reps}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleAmrapSelect(lift, idx, reps)
+                                      }}
+                                      className={`px-4 py-2 rounded-lg font-cyber text-sm border
+                                               ${selectedReps === reps 
+                                                 ? 'bg-matrix-green text-black border-matrix-green' 
+                                                 : 'border-matrix-green/50 text-matrix-green hover:bg-matrix-green/20'
+                                               } 
+                                               transition-all duration-200
+                                               transform hover:scale-105 active:scale-95 min-w-[60px]
+                                               focus:outline-none focus:ring-2 focus:ring-matrix-green/50`}
+                                    >
+                                      {reps === 0 ? 'None' : `+${reps}`}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                             <div className="text-sm font-cyber text-matrix-green/70">
                               Plate Math (per side):
                             </div>
                             <div className="font-cyber text-matrix-green mt-2 space-y-1">
-                              {getPlateBreakdownText(plateBreakdown).split('\n').map((line, i) => (
-                                <div key={i}>{line}</div>
-                              ))}
+                              {getPlateBreakdownText(plateBreakdown).split('\n').map((line, i) => {
+                                const match = line.match(/(\d+) × (\d+\.?\d*) lb plates/)
+                                if (match) {
+                                  const [_, count, weight] = match
+                                  const { value, unit } = convertToPreferredUnit(Number(weight))
+                                  return <div key={i}>{count} × {value} {unit} plates</div>
+                                }
+                                return <div key={i}>{line}</div>
+                              })}
                             </div>
                             <div className="text-xs font-cyber text-matrix-green/50 mt-3 space-y-1">
-                              <div>Bar weight: 45 lbs</div>
+                              <div>Bar weight: {getDisplayWeight(45)}</div>
                               <div>Load plates from heaviest to lightest</div>
                               {plateBreakdown.microPlates.length > 0 && (
                                 <div className="text-matrix-green/40">

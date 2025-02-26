@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import WorkoutPlan from './WorkoutPlan'
-import { FiEdit3, FiTrendingUp } from 'react-icons/fi'
+import { FiTrendingUp } from 'react-icons/fi'
+import { GiWeightLiftingUp } from 'react-icons/gi'
 import { calculateEliteProgress } from '../utils/eliteCalculations'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { convertToPreferredUnit } from '../utils/weightConversions'
 
 type CycleSummaryProps = {
   maxLifts: {
@@ -162,21 +164,31 @@ export default function CycleSummary({
     setSelectedWeek(week === selectedWeek ? null : week)
   }
 
+  // Get the preferred unit for display
+  const getDisplayWeight = (weightInLbs: string | number) => {
+    const { value, unit } = convertToPreferredUnit(Number(weightInLbs))
+    return `${value} ${unit}`
+  }
+
   return (
     <div className="min-h-screen p-2 bg-matrix-dark/30">
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={onBack}
-            className="text-matrix-green font-cyber hover:text-matrix-green/80 p-2 rounded-full hover:bg-matrix-green/10 transition-colors"
+            className="text-matrix-green font-cyber bg-matrix-dark/40 hover:bg-matrix-green/20 
+                     p-3 rounded-lg border border-matrix-green/30 hover:border-matrix-green 
+                     transition-all duration-200 transform hover:scale-105 hover:shadow-glow"
             title="Back to Form"
           >
-            <FiEdit3 size={24} />
+            <GiWeightLiftingUp size={24} />
           </button>
           <h2 className="text-3xl font-retro text-matrix-green">Current 4-Week Cycle</h2>
           <button
             onClick={onShowTimeline}
-            className="text-matrix-green font-cyber hover:text-matrix-green/80 p-2 rounded-full hover:bg-matrix-green/10 transition-colors"
+            className="text-matrix-green font-cyber bg-matrix-dark/40 hover:bg-matrix-green/20 
+                     p-3 rounded-lg border border-matrix-green/30 hover:border-matrix-green 
+                     transition-all duration-200 transform hover:scale-105 hover:shadow-glow"
             title="View Timeline"
           >
             <FiTrendingUp size={24} />
@@ -193,10 +205,10 @@ export default function CycleSummary({
                   {lift.replace('overhead', 'Overhead Press')}
                 </div>
                 <div className="text-2xl font-cyber text-matrix-green">
-                  {weight} lbs
+                  {getDisplayWeight(weight)}
                 </div>
                 <div className="text-sm font-cyber text-matrix-green/70">
-                  Training Max: {Math.round(parseInt(weight) * 0.9)} lbs
+                  Training Max: {getDisplayWeight(Math.round(parseInt(weight) * 0.9))}
                 </div>
               </div>
             ))}
@@ -209,7 +221,7 @@ export default function CycleSummary({
                 3-Lift Total
               </div>
               <div className="text-2xl font-cyber text-matrix-green">
-                {parseInt(maxLifts.squat) + parseInt(maxLifts.bench) + parseInt(maxLifts.deadlift)} lbs
+                {getDisplayWeight(parseInt(maxLifts.squat) + parseInt(maxLifts.bench) + parseInt(maxLifts.deadlift))}
               </div>
               <div className="text-sm font-cyber text-matrix-green/70">
                 Squat + Bench + Deadlift
@@ -220,7 +232,7 @@ export default function CycleSummary({
                 4-Lift Total
               </div>
               <div className="text-2xl font-cyber text-matrix-green">
-                {parseInt(maxLifts.squat) + parseInt(maxLifts.bench) + parseInt(maxLifts.deadlift) + parseInt(maxLifts.overhead)} lbs
+                {getDisplayWeight(parseInt(maxLifts.squat) + parseInt(maxLifts.bench) + parseInt(maxLifts.deadlift) + parseInt(maxLifts.overhead))}
               </div>
               <div className="text-sm font-cyber text-matrix-green/70">
                 All Lifts Including Overhead Press
@@ -320,20 +332,6 @@ export default function CycleSummary({
               selectedWeek={selectedWeek} 
               onStatusChange={handleStatusChange}
             />
-            
-            {/* Show Flex button when current week is complete, but not when cycle is complete */}
-            {completedWeeks.includes(selectedWeek) && completedWeeks.length < 4 && (
-              <div className="mt-8 flex justify-center">
-                <button
-                  onClick={() => window.alert('Flex on em! 💪')}
-                  className="px-6 py-3 bg-gradient-to-r from-matrix-green/80 to-matrix-green 
-                           text-black rounded-lg font-cyber text-lg transform hover:scale-105
-                           transition-all hover:shadow-lg hover:shadow-matrix-green/20"
-                >
-                  Flex on Em! 💪
-                </button>
-              </div>
-            )}
             
             {/* Show Review Button when all 16 lifts in the cycle are complete */}
             {completedWeeks.length === 4 && completedWeeks.every(w => w >= 1 && w <= 4) && (

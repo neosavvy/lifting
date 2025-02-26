@@ -2,7 +2,7 @@ import { ReactNode, useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
-import { SunIcon, MoonIcon } from '@heroicons/react/24/solid'
+import { SunIcon, MoonIcon, Cog6ToothIcon } from '@heroicons/react/24/solid'
 
 type LayoutProps = {
   children: ReactNode
@@ -40,6 +40,16 @@ export default function Layout({ children }: LayoutProps) {
     navigate('/')
   }
 
+  const handleCycleSettings = () => {
+    setShowDropdown(false)
+    navigate('/enter-your-stats')
+  }
+
+  const handleEquipmentSettings = () => {
+    setShowDropdown(false)
+    navigate('/equipment')
+  }
+
   // Prevent zoom on double tap
   const preventZoom = (e: TouchEvent) => {
     if (e.touches.length > 1) {
@@ -61,22 +71,37 @@ export default function Layout({ children }: LayoutProps) {
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={handleAuthClick}
-                className="px-4 py-2 rounded-lg bg-matrix-dark text-white hover:bg-matrix-light"
+                className="px-4 py-2 rounded-lg bg-matrix-dark text-white hover:bg-matrix-light flex items-center gap-2"
               >
-                {user ? 'Profile' : 'Sign In'}
+                <Cog6ToothIcon className="h-5 w-5" />
+                {user ? 'Settings' : 'Sign In'}
               </button>
               {showDropdown && user && (
-                <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-black border border-matrix-light">
+                <div className="absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-black border border-matrix-light">
                   <div className="py-1">
-                    <div className="px-4 py-2 text-sm text-black dark:text-[#00ff00] border-b border-matrix-light">
+                    <div className="px-4 py-2 text-sm text-black dark:text-[#00ff00] border-b border-matrix-light font-cyber">
                       {user.email}
                     </div>
                     <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-black dark:text-[#00ff00] hover:bg-gray-100 dark:hover:bg-matrix-dark"
+                      onClick={handleCycleSettings}
+                      className="block w-full text-left px-4 py-2 text-sm text-black dark:text-[#00ff00] hover:bg-gray-100 dark:hover:bg-matrix-dark font-cyber"
                     >
-                      Sign Out
+                      Cycle Settings
                     </button>
+                    <button
+                      onClick={handleEquipmentSettings}
+                      className="block w-full text-left px-4 py-2 text-sm text-black dark:text-[#00ff00] hover:bg-gray-100 dark:hover:bg-matrix-dark font-cyber"
+                    >
+                      Equipment Settings
+                    </button>
+                    <div className="border-t border-matrix-light">
+                      <button
+                        onClick={handleLogout}
+                        className="block w-full text-left px-4 py-2 text-sm text-black dark:text-[#00ff00] hover:bg-gray-100 dark:hover:bg-matrix-dark font-cyber"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
