@@ -6,7 +6,8 @@ import AuthPage from './pages/AuthPage'
 import EquipmentSettings from './pages/EquipmentSettings'
 import EnterStatsPage from './pages/EnterStatsPage'
 import EliteTimelinePage from './pages/EliteTimelinePage'
-import { AuthProvider } from './contexts/AuthContext'
+import LandingPage from './pages/LandingPage'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import PrivateRoute from './components/PrivateRoute'
 
 function App() {
@@ -15,8 +16,10 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <Routes>
-            <Route path="/" element={<Navigate to="/workout" replace />} />
-            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/sign-in" element={<AuthPage mode="sign-in" />} />
+            <Route path="/sign-up" element={<AuthPage mode="sign-up" />} />
+            <Route path="/auth" element={<Navigate to="/sign-in" replace />} />
             <Route
               path="/workout"
               element={
