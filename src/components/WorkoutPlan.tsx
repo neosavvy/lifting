@@ -416,7 +416,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
                             Set {idx + 1}:
                           </span>
                           <span className="font-cyber text-matrix-green flex-shrink-0">
-                            {getDisplayWeight(weight)} × {workout.sets[idx].reps} reps
+                            {getDisplayWeight(weight)} × {workout.sets[idx].reps}
                             {isAmrapSet && selectedReps > 0 && (
                               <span className="ml-2 text-matrix-green/70">(+{selectedReps})</span>
                             )}
@@ -431,7 +431,7 @@ export default function WorkoutPlan({ maxLifts, selectedWeek, onStatusChange }: 
                                   Extra Reps on AMRAP Set
                                 </div>
                                 <div className="flex gap-3">
-                                  {[0, 1, 2, 3].map(reps => (
+                                  {[0, 1, 2].map(reps => (
                                     <button
                                       key={reps}
                                       onClick={(e) => {
